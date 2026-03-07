@@ -1,13 +1,19 @@
+// app/report/page.js
+
 "use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { RISK_COLORS } from "@/lib/constants";
 
 export default function ReportPage() {
-  const router = useRouter();
+  const router   = useRouter();
+  const supabase = createClient();
+
   const [report, setReport] = useState(null);
+  const [user, setUser]     = useState(null);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("report");
@@ -16,7 +22,14 @@ export default function ReportPage() {
       return;
     }
     setReport(JSON.parse(stored));
+
+    supabase.auth.getUser().then(({ data }) => setUser(data.user ?? null));
   }, []);
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push("/login");
+  }
 
   if (!report) return null;
 
@@ -30,16 +43,32 @@ export default function ReportPage() {
         <Link href="/" className="text-blue-700 font-bold text-lg tracking-tight">
           📚 Capstone Library
         </Link>
-        <div className="flex gap-4">
+        <div className="flex gap-4 items-center">
           <Link href="/library" className="text-sm text-gray-600 hover:text-blue-700 transition">
             Browse Library
           </Link>
-          <Link href="/login" className="text-sm text-gray-600 hover:text-blue-700 transition">
-            Login
-          </Link>
-          <Link href="/register" className="text-sm bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition">
-            Register
-          </Link>
+          {user ? (
+            <>
+              <Link href="/dashboard" className="text-sm text-gray-600 hover:text-blue-700 transition">
+                My Submissions
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="text-sm bg-red-500 text-white px-4 py-1.5 rounded-md hover:bg-red-600 transition"
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <Link href="/login" className="text-sm text-gray-600 hover:text-blue-700 transition">
+                Login
+              </Link>
+              <Link href="/login" className="text-sm bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition">
+                Register
+              </Link>
+            </>
+          )}
         </div>
       </nav>
 
@@ -108,6 +137,18 @@ export default function ReportPage() {
             {report.recommendations}
           </div>
         </div>
+
+        {/* VIEW ALL SUBMISSIONS */}
+        {user && (
+          <div className="mt-8 text-center">
+            <Link
+              href="/dashboard"
+              className="inline-block border border-gray-300 text-gray-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-50 transition"
+            >
+              View All My Submissions
+            </Link>
+          </div>
+        )}
 
       </div>
     </main>
