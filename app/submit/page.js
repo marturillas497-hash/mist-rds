@@ -56,8 +56,7 @@ export default function SubmitPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Analysis failed.");
 
-      sessionStorage.setItem("report", JSON.stringify(data));
-      router.push("/report");
+      router.push(`/dashboard/${data.reportId}`);
 
     } catch (err) {
       setError(err.message);

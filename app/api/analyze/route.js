@@ -196,7 +196,7 @@ export async function POST(req) {
       ?? "No recommendations could be generated.";
 
     // 5. Save report with student_id
-    await supabase.from("similarity_reports").insert({
+      const { data: savedReport } = await supabase.from("similarity_reports").insert({
       student_id:         student_id ?? null,
       input_title:        title,
       input_description:  description,
@@ -204,9 +204,11 @@ export async function POST(req) {
       risk_level:         risk.color,
       results_json:       scored,
       ai_recommendations: recommendations,
-    });
+    })
+    .select("id")
+    .single();
 
-    return NextResponse.json({ score, risk, topMatches: scored, recommendations });
+    return NextResponse.json({ score, risk, topMatches: scored, recommendations, reportId: savedReport.id });
 
   } catch (err) {
     console.error("API error:", err);

@@ -20,7 +20,7 @@ A web-based system that allows students to check the originality of their capsto
 
 | Layer | Technology |
 |---|---|
-| Framework | Next.js 16 (App Router) |
+| Framework | Next.js 15 (App Router) |
 | Styling | Tailwind CSS v4 |
 | Database | Supabase (PostgreSQL + pgvector) |
 | Auth | Supabase Auth |
@@ -47,8 +47,8 @@ cd capstone-library
 # 2. Install dependencies
 npm install
 
-# 3. Create your environment file
-cp .env.example .env.local
+# 3. Create your environment file manually
+# Copy the variables listed below into a new .env.local file
 # Then fill in your actual keys in .env.local
 
 # 4. Run the development server
@@ -121,6 +121,7 @@ lib/
 - API routes do not verify auth on every request (relies on RLS and middleware)
 - Embedding generation is asynchronous — newly added abstracts may not be searchable immediately
 - Session-based report storage (`sessionStorage`) on the report page is cleared on tab close
+- The `/library/[id]` detail page uses a static navbar (no auth state) since it is a Server Component
 
 ---
 
