@@ -120,7 +120,6 @@ lib/
 
 - API routes do not verify auth on every request (relies on RLS and middleware)
 - Embedding generation is asynchronous — newly added abstracts may not be searchable immediately
-- Session-based report storage (`sessionStorage`) on the report page is cleared on tab close
 - The `/library/[id]` detail page uses a static navbar (no auth state) since it is a Server Component
 
 ---
