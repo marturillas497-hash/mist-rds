@@ -94,7 +94,11 @@ export default function AdminDashboard() {
               <tbody className="divide-y divide-gray-100">
                 {abstracts.map((a) => (
                   <tr key={a.id} className="hover:bg-gray-50 transition">
-                    <td className="px-5 py-4 text-gray-900 font-medium max-w-xs truncate">{a.title}</td>
+                    <td className="px-5 py-4 font-medium max-w-xs truncate">
+                      <Link href={`/library/${a.id}?from=admin`} className="text-gray-900 hover:text-blue-700 transition">
+                        {a.title}
+                      </Link>
+                    </td>
                     <td className="px-5 py-4 text-gray-500">{a.department ?? "—"}</td>
                     <td className="px-5 py-4 text-gray-500">{a.year ?? "—"}</td>
                     <td className="px-5 py-4">

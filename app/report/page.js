@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { RISK_COLORS } from "@/lib/constants";
+import Navbar from "@/components/Navbar";
 
 export default function ReportPage() {
   const router   = useRouter();
@@ -26,11 +27,6 @@ export default function ReportPage() {
     supabase.auth.getUser().then(({ data }) => setUser(data.user ?? null));
   }, []);
 
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    router.push("/login");
-  }
-
   if (!report) return null;
 
   const risk = RISK_COLORS[report.risk.color] ?? RISK_COLORS.GREEN;
@@ -38,39 +34,7 @@ export default function ReportPage() {
   return (
     <main className="min-h-screen bg-gray-50">
 
-      {/* NAVBAR */}
-      <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <Link href="/" className="text-blue-700 font-bold text-lg tracking-tight">
-          📚 Capstone Library
-        </Link>
-        <div className="flex gap-4 items-center">
-          <Link href="/library" className="text-sm text-gray-600 hover:text-blue-700 transition">
-            Browse Library
-          </Link>
-          {user ? (
-            <>
-              <Link href="/dashboard" className="text-sm text-gray-600 hover:text-blue-700 transition">
-                My Submissions
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="text-sm bg-red-500 text-white px-4 py-1.5 rounded-md hover:bg-red-600 transition"
-              >
-                Logout
-              </button>
-            </>
-          ) : (
-            <>
-              <Link href="/login" className="text-sm text-gray-600 hover:text-blue-700 transition">
-                Login
-              </Link>
-              <Link href="/login" className="text-sm bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition">
-                Register
-              </Link>
-            </>
-          )}
-        </div>
-      </nav>
+      <Navbar />
 
       <div className="max-w-3xl mx-auto px-6 py-10">
 
@@ -78,7 +42,6 @@ export default function ReportPage() {
           ← Check another idea
         </Link>
 
-        {/* SCORE CARD */}
         <div className={`rounded-xl border p-8 mb-6 text-center ${risk.bg} border-transparent`}>
           <p className="text-sm font-semibold uppercase tracking-widest text-gray-500 mb-2">
             Overall Similarity Score
@@ -91,7 +54,6 @@ export default function ReportPage() {
           </span>
         </div>
 
-        {/* TOP MATCHES */}
         <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6">
           <h2 className="font-semibold text-gray-800 mb-4">Top Similar Studies</h2>
           <div className="space-y-4">
@@ -114,7 +76,6 @@ export default function ReportPage() {
                       </span>
                     </div>
                   </div>
-                  {/* SIMILARITY BAR */}
                   <div className="w-full bg-gray-100 rounded-full h-1.5 mt-2">
                     <div
                       className={`h-1.5 rounded-full ${mRisk.bg.replace("bg-", "bg-").replace("-100", "-400")}`}
@@ -130,7 +91,6 @@ export default function ReportPage() {
           </div>
         </div>
 
-        {/* AI RECOMMENDATIONS */}
         <div className="bg-white border border-gray-200 rounded-xl p-6">
           <h2 className="font-semibold text-gray-800 mb-4">💡 AI Recommendations</h2>
           <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
@@ -138,7 +98,6 @@ export default function ReportPage() {
           </div>
         </div>
 
-        {/* VIEW ALL SUBMISSIONS */}
         {user && (
           <div className="mt-8 text-center">
             <Link

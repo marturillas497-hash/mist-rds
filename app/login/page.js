@@ -1,5 +1,3 @@
-// app/login/page.js
-
 "use client";
 
 import { useState } from "react";
@@ -20,6 +18,26 @@ export default function LoginPage() {
     email: "", password: "", full_name: "",
     department: "", year_level: "", section: "", student_id: "",
   });
+
+  useEffect(() => {
+  supabase.auth.getUser().then(({ data }) => {
+    if (data.user) {
+      // already logged in — redirect away from login page
+      supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", data.user.id)
+        .single()
+        .then(({ data: profile }) => {
+          if (profile?.role === "admin") {
+            router.replace("/admin");
+          } else {
+            router.replace("/");
+          }
+        });
+    }
+  });
+}, []);
 
   function handleChange(e) {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -101,7 +119,6 @@ export default function LoginPage() {
     <main className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
 
-        {/* Header */}
         <div className="text-center mb-8">
           <span className="text-3xl">📚</span>
           <h1 className="text-2xl font-bold text-gray-900 mt-2">Capstone Library</h1>
@@ -110,10 +127,8 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Card */}
         <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm space-y-5">
 
-          {/* Mode toggle */}
           <div className="flex bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => { setMode("login"); setError(""); }}
@@ -137,7 +152,6 @@ export default function LoginPage() {
             </button>
           </div>
 
-          {/* Register-only fields */}
           {mode === "register" && (
             <>
               <div>
@@ -152,9 +166,7 @@ export default function LoginPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Student ID
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Student ID</label>
                 <input
                   name="student_id" value={form.student_id} onChange={handleChange}
                   className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -196,7 +208,6 @@ export default function LoginPage() {
             </>
           )}
 
-          {/* Shared fields */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Email <span className="text-red-500">*</span>
@@ -237,6 +248,14 @@ export default function LoginPage() {
           </button>
 
         </div>
+
+        <p className="text-center text-xs text-gray-400 mt-6">
+          Admin?{" "}
+          <a href="/admin/login" className="hover:underline">
+            Admin login →
+          </a>
+        </p>
+
       </div>
     </main>
   );

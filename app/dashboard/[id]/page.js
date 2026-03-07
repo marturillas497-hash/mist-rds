@@ -1,4 +1,4 @@
-// app/dashboard/[id]/page.js (report page)
+// app/dashboard/[id]/page.js
 
 "use client";
 
@@ -7,14 +7,15 @@ import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { RISK_COLORS } from "@/lib/constants";
+import Navbar from "@/components/Navbar";
 
 export default function ReportDetailPage() {
   const router   = useRouter();
   const { id }   = useParams();
   const supabase = createClient();
 
-  const [report, setReport]   = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [report, setReport]     = useState(null);
+  const [loading, setLoading]   = useState(true);
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
@@ -29,17 +30,12 @@ export default function ReportDetailPage() {
       .from("similarity_reports")
       .select("*")
       .eq("id", id)
-      .eq("student_id", userId) // ensure students can only see their own
+      .eq("student_id", userId)
       .single();
 
     if (error || !data) { setNotFound(true); setLoading(false); return; }
     setReport(data);
     setLoading(false);
-  }
-
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    router.push("/login");
   }
 
   function getRiskStyle(risk_level) {
@@ -65,7 +61,7 @@ export default function ReportDetailPage() {
   if (notFound) {
     return (
       <main className="min-h-screen bg-gray-50">
-        <Navbar onLogout={handleLogout} />
+        <Navbar />
         <div className="max-w-3xl mx-auto px-6 py-20 text-center">
           <p className="text-gray-500 text-sm mb-4">Report not found.</p>
           <Link href="/dashboard" className="text-blue-600 hover:underline text-sm">
@@ -76,27 +72,25 @@ export default function ReportDetailPage() {
     );
   }
 
-  const style     = getRiskStyle(report.risk_level);
+  const style      = getRiskStyle(report.risk_level);
   const topMatches = report.results_json ?? [];
 
   return (
     <main className="min-h-screen bg-gray-50">
-      <Navbar onLogout={handleLogout} />
+
+      <Navbar />
 
       <div className="max-w-3xl mx-auto px-6 py-10">
 
-        {/* BACK */}
         <Link href="/dashboard" className="text-sm text-blue-600 hover:underline mb-6 inline-block">
           ← Back to My Submissions
         </Link>
 
-        {/* TITLE + DATE */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">{report.input_title}</h1>
           <p className="text-gray-400 text-sm mt-1">Submitted on {formatDate(report.created_at)}</p>
         </div>
 
-        {/* SCORE CARD */}
         <div className={`rounded-xl border p-6 mb-6 ${style.bg} border-transparent`}>
           <div className="flex items-center justify-between">
             <div>
@@ -113,7 +107,6 @@ export default function ReportDetailPage() {
           </div>
         </div>
 
-        {/* DESCRIPTION */}
         <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6 shadow-sm">
           <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
             Your Description
@@ -121,7 +114,6 @@ export default function ReportDetailPage() {
           <p className="text-gray-700 text-sm leading-relaxed">{report.input_description}</p>
         </div>
 
-        {/* TOP MATCHES */}
         {topMatches.length > 0 && (
           <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6 shadow-sm">
             <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">
@@ -156,7 +148,6 @@ export default function ReportDetailPage() {
           </div>
         )}
 
-        {/* AI RECOMMENDATIONS */}
         {report.ai_recommendations && (
           <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
             <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">
@@ -168,7 +159,6 @@ export default function ReportDetailPage() {
           </div>
         )}
 
-        {/* CHECK AGAIN */}
         <div className="mt-8 text-center">
           <Link
             href="/submit"
@@ -180,26 +170,5 @@ export default function ReportDetailPage() {
 
       </div>
     </main>
-  );
-}
-
-function Navbar({ onLogout }) {
-  return (
-    <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-      <Link href="/" className="text-blue-700 font-bold text-lg tracking-tight">
-        📚 Capstone Library
-      </Link>
-      <div className="flex gap-4 items-center">
-        <Link href="/library" className="text-sm text-gray-600 hover:text-blue-700 transition">
-          Browse Library
-        </Link>
-        <button
-          onClick={onLogout}
-          className="text-sm bg-red-500 text-white px-4 py-1.5 rounded-md hover:bg-red-600 transition"
-        >
-          Logout
-        </button>
-      </div>
-    </nav>
   );
 }

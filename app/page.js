@@ -2,57 +2,14 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import Navbar from "@/components/Navbar";
 
 export default function Home() {
-  const router = useRouter();
-  const supabase = createClient();
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user ?? null));
-  }, []);
-
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    setUser(null);
-    router.refresh();
-  }
-
   return (
     <main className="min-h-screen bg-gray-50">
 
-      {/* NAVBAR */}
-      <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <span className="text-blue-700 font-bold text-lg tracking-tight">
-          📚 Capstone Library
-        </span>
-        <div className="flex gap-4 items-center">
-          <Link href="/library" className="text-sm text-gray-600 hover:text-blue-700 transition">
-            Browse Library
-          </Link>
-          {user ? (
-            <button
-              onClick={handleLogout}
-              className="text-sm bg-red-500 text-white px-4 py-1.5 rounded-md hover:bg-red-600 transition"
-            >
-              Logout
-            </button>
-          ) : (
-            <>
-              <Link href="/login" className="text-sm text-gray-600 hover:text-blue-700 transition">
-                Login
-              </Link>
-              <Link href="/login" className="text-sm bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition">
-                Register
-              </Link>
-            </>
-          )}
-        </div>
-      </nav>
+      <Navbar />
 
       {/* HERO */}
       <section className="max-w-3xl mx-auto text-center px-6 py-24">

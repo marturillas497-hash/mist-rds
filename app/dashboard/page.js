@@ -7,14 +7,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { RISK_COLORS } from "@/lib/constants";
+import Navbar from "@/components/Navbar";
 
 export default function DashboardPage() {
   const router   = useRouter();
   const supabase = createClient();
 
-  const [user, setUser]           = useState(null);
-  const [reports, setReports]     = useState([]);
-  const [loading, setLoading]     = useState(true);
+  const [user, setUser]       = useState(null);
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -36,11 +37,6 @@ export default function DashboardPage() {
 
     if (!error) setReports(data ?? []);
     setLoading(false);
-  }
-
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    router.push("/login");
   }
 
   function getRiskStyle(risk_level) {
@@ -65,27 +61,10 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-gray-50">
 
-      {/* NAVBAR */}
-      <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <Link href="/" className="text-blue-700 font-bold text-lg tracking-tight">
-          📚 Capstone Library
-        </Link>
-        <div className="flex gap-4 items-center">
-          <Link href="/library" className="text-sm text-gray-600 hover:text-blue-700 transition">
-            Browse Library
-          </Link>
-          <button
-            onClick={handleLogout}
-            className="text-sm bg-red-500 text-white px-4 py-1.5 rounded-md hover:bg-red-600 transition"
-          >
-            Logout
-          </button>
-        </div>
-      </nav>
+      <Navbar />
 
       <div className="max-w-4xl mx-auto px-6 py-10">
 
-        {/* HEADER */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">My Submissions</h1>
@@ -99,7 +78,6 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {/* EMPTY STATE */}
         {reports.length === 0 ? (
           <div className="bg-white border border-gray-200 rounded-xl p-16 text-center shadow-sm">
             <p className="text-4xl mb-4">🔍</p>

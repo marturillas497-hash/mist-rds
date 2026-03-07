@@ -1,10 +1,10 @@
-// middleware.js (project root, next to package.json)
-
+// middleware.js  ← place at project ROOT (next to package.json)
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 
 export async function middleware(request) {
-  let supabaseResponse = NextResponse.next({ request });
+  const { pathname } = request.nextUrl;
+  let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -18,32 +18,22 @@ export async function middleware(request) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
-          supabaseResponse = NextResponse.next({ request });
+          response = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
+            response.cookies.set(name, value, options)
           );
         },
       },
     }
   );
 
+  // Refresh session on every request (required by Supabase SSR)
   const { data: { user } } = await supabase.auth.getUser();
-  const { pathname } = request.nextUrl;
 
-  // Protect /submit — must be logged in
-  if (pathname === "/submit" && !user) {
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
-
-  // Protect /dashboard — must be logged in
-  if (pathname.startsWith("/dashboard") && !user) {
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
-
-  // Protect /admin — must be logged in as admin
-  if (pathname.startsWith("/admin")) {
+  // ── Protect /admin/* ──────────────────────────────────────────────────────
+  if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
     if (!user) {
-      return NextResponse.redirect(new URL("/login", request.url));
+      return NextResponse.redirect(new URL("/admin/login", request.url));
     }
 
     const { data: profile } = await supabase
@@ -53,26 +43,28 @@ export async function middleware(request) {
       .single();
 
     if (profile?.role !== "admin") {
-      return NextResponse.redirect(new URL("/", request.url));
+      return NextResponse.redirect(new URL("/admin/login", request.url));
     }
   }
 
-  // Redirect logged-in users away from /login
-  if (pathname === "/login" && user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    return NextResponse.redirect(
-      new URL(profile?.role === "admin" ? "/admin" : "/", request.url)
-    );
+  // ── Protect /submit and /report ───────────────────────────────────────────
+  if (pathname.startsWith("/submit") || pathname.startsWith("/report")) {
+    if (!user) {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
   }
 
-  return supabaseResponse;
+  return response;
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/login", "/submit", "/dashboard/:path*"],
+  matcher: [
+    "/admin/:path*",
+    "/submit/:path*",
+    "/submit",
+    "/report/:path*",
+    "/report",
+  ],
 };

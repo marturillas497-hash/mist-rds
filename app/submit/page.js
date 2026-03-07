@@ -1,15 +1,33 @@
+// app/submit/page.js
+
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import Navbar from "@/components/Navbar";
 
 export default function SubmitPage() {
-  const router = useRouter();
+  const router   = useRouter();
+  const supabase = createClient();
+
+  const [user, setUser]               = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [title, setTitle]             = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading]         = useState(false);
   const [error, setError]             = useState("");
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) {
+        router.replace("/login");
+      } else {
+        setUser(data.user);
+        setAuthLoading(false);
+      }
+    });
+  }, []);
 
   async function handleSubmit() {
     if (!title.trim() || !description.trim()) {
@@ -30,16 +48,14 @@ export default function SubmitPage() {
 
     try {
       const res = await fetch("/api/analyze", {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description }),
+        body:    JSON.stringify({ title, description, student_id: user.id }),
       });
 
       const data = await res.json();
-
       if (!res.ok) throw new Error(data.error || "Analysis failed.");
 
-      // Store result in sessionStorage and redirect to report page
       sessionStorage.setItem("report", JSON.stringify(data));
       router.push("/report");
 
@@ -50,26 +66,18 @@ export default function SubmitPage() {
     }
   }
 
+  if (authLoading) {
+    return (
+      <main className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-400 text-sm">Loading...</p>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-gray-50">
 
-      {/* NAVBAR */}
-      <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <Link href="/" className="text-blue-700 font-bold text-lg tracking-tight">
-          📚 Capstone Library
-        </Link>
-        <div className="flex gap-4">
-          <Link href="/library" className="text-sm text-gray-600 hover:text-blue-700 transition">
-            Browse Library
-          </Link>
-          <Link href="/login" className="text-sm text-gray-600 hover:text-blue-700 transition">
-            Login
-          </Link>
-          <Link href="/register" className="text-sm bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition">
-            Register
-          </Link>
-        </div>
-      </nav>
+      <Navbar />
 
       <div className="max-w-2xl mx-auto px-6 py-10">
 
@@ -82,7 +90,6 @@ export default function SubmitPage() {
 
         <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
 
-          {/* TITLE */}
           <div className="mb-5">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Proposed Title
@@ -97,7 +104,6 @@ export default function SubmitPage() {
             <p className="text-xs text-gray-400 mt-1 text-right">{title.length}/200</p>
           </div>
 
-          {/* DESCRIPTION */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Research Description
@@ -112,14 +118,12 @@ export default function SubmitPage() {
             <p className="text-xs text-gray-400 mt-1 text-right">{description.length}/1000</p>
           </div>
 
-          {/* ERROR */}
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-4 py-3 mb-4">
               {error}
             </div>
           )}
 
-          {/* SUBMIT */}
           <button
             onClick={handleSubmit}
             disabled={loading}

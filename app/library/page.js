@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { DEPARTMENTS } from "@/lib/constants";
+import Navbar from "@/components/Navbar";
 
 export default function LibraryPage() {
   const supabase = createClient();
@@ -43,27 +44,10 @@ export default function LibraryPage() {
   return (
     <main className="min-h-screen bg-gray-50">
 
-      {/* NAVBAR */}
-      <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <Link href="/" className="text-blue-700 font-bold text-lg tracking-tight">
-          📚 Capstone Library
-        </Link>
-        <div className="flex gap-4">
-          <Link href="/library" className="text-sm text-blue-700 font-semibold">
-            Browse Library
-          </Link>
-          <Link href="/login" className="text-sm text-gray-600 hover:text-blue-700 transition">
-            Login
-          </Link>
-          <Link href="/login" className="text-sm bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition">
-            Register
-          </Link>
-        </div>
-      </nav>
+      <Navbar />
 
       <div className="max-w-5xl mx-auto px-6 py-10">
 
-        {/* HEADER */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Abstract Library</h1>
           <p className="text-gray-500 text-sm mt-1">
@@ -71,7 +55,6 @@ export default function LibraryPage() {
           </p>
         </div>
 
-        {/* FILTERS */}
         <div className="bg-white border border-gray-200 rounded-xl p-4 mb-6 flex flex-col sm:flex-row gap-3">
           <input
             type="text"
@@ -105,7 +88,6 @@ export default function LibraryPage() {
           </button>
         </div>
 
-        {/* RESULTS */}
         {loading ? (
           <div className="text-center py-20 text-gray-400 text-sm">Loading abstracts...</div>
         ) : abstracts.length === 0 ? (
