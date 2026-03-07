@@ -51,6 +51,8 @@ function normalizeEmbedding(raw) {
 }
 
 function buildPrompt(title, description, score, similarList) {
+  const context = `Keep in mind this is a college capstone research proposal. All suggestions must be realistic and achievable by undergraduate students with limited time, budget, and resources. The system is used across multiple departments including Information Systems, Education, Criminology, Midwifery, Computer Technology, Accountancy, and Public Administration — so tailor your advice to what makes sense for the student's apparent field. Do not suggest enterprise-scale systems, large datasets requiring paid APIs, or research that requires professional laboratory equipment.`;
+
   if (score < 40) {
     return `You are an academic research adviser reviewing a student's capstone research proposal.
 
@@ -64,11 +66,13 @@ Overall similarity score: ${score}% — LOW similarity. The research idea is hig
 MOST RELATED EXISTING STUDIES (for reference only):
 ${similarList}
 
+${context}
+
 Write a short advisory note in plain paragraphs. Do NOT use letter format — no "Dear Student", no "Best Regards", no sign-off.
 
 Your response must follow this exact structure:
 1. One paragraph congratulating the student on their original idea and briefly explaining why it stands out from the existing studies listed above.
-2. A short list of 2 to 3 specific suggestions to strengthen or refine the proposal — not to change the topic, just to make it more solid. Focus on things like clarifying the scope, defining the target population, or strengthening the methodology.
+2. A short list of 2 to 3 specific suggestions to strengthen or refine the proposal — not to change the topic, just to make it more solid. Focus on things like clarifying the scope, defining the target population, or strengthening the methodology. All suggestions must be doable by a college student.
 
 Be direct and specific. Do not be generic. Do not use filler phrases like "I am pleased to inform you" or "I hope this helps".`;
   }
@@ -86,11 +90,13 @@ Overall similarity score: ${score}% — MODERATE similarity. The idea has some o
 SIMILAR EXISTING STUDIES:
 ${similarList}
 
+${context}
+
 Write in plain paragraphs. Do NOT use letter format — no "Dear Student", no "Best Regards", no sign-off.
 
 Your response must follow this exact structure:
 1. One paragraph acknowledging the merit of their idea while clearly identifying the specific areas of overlap with the studies above.
-2. A list of 3 to 4 specific suggestions to differentiate their research — such as a narrower scope, different target population, new variable, or unique methodology. Be specific to their topic, not generic.
+2. A list of 3 to 4 specific suggestions to differentiate their research — such as a narrower scope, different target population, new variable, or unique methodology. Be specific to their topic and make sure every suggestion is realistic for an undergraduate student.
 3. One to 2 refined title options that better reflect a more distinct direction.
 
 Be direct and constructive. Do not use filler phrases.`;
@@ -108,11 +114,13 @@ Overall similarity score: ${score}% — HIGH similarity. The idea significantly 
 SIMILAR EXISTING STUDIES:
 ${similarList}
 
+${context}
+
 Write in plain paragraphs. Do NOT use letter format — no "Dear Student", no "Best Regards", no sign-off.
 
 Your response must follow this exact structure:
 1. One paragraph clearly explaining which existing studies overlap and why the current idea is too similar.
-2. A list of 4 to 5 concrete suggestions to significantly differentiate the research — such as a completely different angle, new technology, different methodology, different target group, or an unexplored combination of topics. Be specific to their topic.
+2. A list of 4 to 5 concrete suggestions to significantly differentiate the research — such as a completely different angle, new approach, different methodology, different target group, or an unexplored combination of topics relevant to the student's field. Every suggestion must be feasible for an undergraduate student with limited resources.
 3. Two alternative title options that reflect a genuinely more original direction.
 
 Be direct and solution-focused. Do not be discouraging — frame everything as an opportunity to improve. Do not use filler phrases.`;

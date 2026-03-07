@@ -2,16 +2,28 @@
 
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import { createClient } from "@/lib/supabase/client";
 
 export default function Home() {
+  const [user, setUser]         = useState(null);
+  const [authReady, setAuthReady] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user ?? null);
+      setAuthReady(true);
+    });
+  }, []);
+
   return (
     <main className="min-h-screen bg-gray-50">
 
       <Navbar />
 
-      {/* HERO */}
       <section className="max-w-3xl mx-auto text-center px-6 py-24">
         <h1 className="text-4xl font-bold text-gray-900 mb-4">
           Check Your Research Idea's Originality
@@ -21,12 +33,14 @@ export default function Home() {
           using AI-powered similarity analysis.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Link
-            href="/login"
-            className="bg-blue-700 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-800 transition"
-          >
-            Get Started
-          </Link>
+          {authReady && user && (
+            <Link
+              href="/submit"
+              className="bg-blue-700 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-800 transition"
+            >
+              Check Your Idea
+            </Link>
+          )}
           <Link
             href="/library"
             className="border border-gray-300 text-gray-700 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition"
@@ -36,7 +50,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* FEATURE CARDS */}
       <section className="max-w-4xl mx-auto px-6 pb-24 grid grid-cols-1 sm:grid-cols-3 gap-6">
         {[
           { icon: "🔍", title: "AI Similarity Check",  desc: "Compare your idea against existing capstone abstracts instantly." },
