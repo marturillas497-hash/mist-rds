@@ -1,11 +1,15 @@
+// app/library/page.js
+
 "use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import supabase from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import { DEPARTMENTS } from "@/lib/constants";
 
 export default function LibraryPage() {
+  const supabase = createClient();
+
   const [abstracts, setAbstracts] = useState([]);
   const [loading, setLoading]     = useState(true);
   const [search, setSearch]       = useState("");
@@ -31,7 +35,7 @@ export default function LibraryPage() {
     const { data, error } = await query;
 
     if (error) console.error("Fetch error:", error.message);
-    else setAbstracts(data);
+    else setAbstracts(data ?? []);
 
     setLoading(false);
   }
@@ -51,7 +55,7 @@ export default function LibraryPage() {
           <Link href="/login" className="text-sm text-gray-600 hover:text-blue-700 transition">
             Login
           </Link>
-          <Link href="/register" className="text-sm bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition">
+          <Link href="/login" className="text-sm bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition">
             Register
           </Link>
         </div>
@@ -74,12 +78,12 @@ export default function LibraryPage() {
             placeholder="Search by title..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <select
             value={dept}
             onChange={(e) => setDept(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">All Departments</option>
             {DEPARTMENTS.map((d) => (
@@ -91,7 +95,7 @@ export default function LibraryPage() {
             placeholder="Year (e.g. 2024)"
             value={year}
             onChange={(e) => setYear(e.target.value)}
-            className="w-36 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-36 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             onClick={() => { setSearch(""); setDept(""); setYear(""); }}

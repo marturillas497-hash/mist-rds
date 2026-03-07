@@ -1,3 +1,5 @@
+// app/api/analyze/route.js
+
 import { NextResponse } from "next/server";
 import { InferenceClient } from "@huggingface/inference";
 import { createClient } from "@supabase/supabase-js";
@@ -5,14 +7,14 @@ import OpenAI from "openai";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 const hfClient = new InferenceClient(process.env.HUGGINGFACE_API_KEY);
 
 const groq = new OpenAI({
-  apiKey: process.env.GROQ_API_KEY,
-  baseURL: "https://api.groq.com/openai/v1",
+  apiKey:   process.env.GROQ_API_KEY,
+  baseURL:  "https://api.groq.com/openai/v1",
 });
 
 const EMBEDDING_DIM = 384;
@@ -32,9 +34,9 @@ function cosineSimilarity(a, b) {
 
 function getRiskLevel(percent) {
   if (percent >= 80) return { level: "Very High", color: "RED"    };
-  if (percent >= 60) return { level: "High",       color: "ORANGE" };
-  if (percent >= 40) return { level: "Moderate",   color: "YELLOW" };
-  return                    { level: "Low",        color: "GREEN"  };
+  if (percent >= 60) return { level: "High",      color: "ORANGE" };
+  if (percent >= 40) return { level: "Moderate",  color: "YELLOW" };
+  return                    { level: "Low",       color: "GREEN"  };
 }
 
 function normalizeEmbedding(raw) {
@@ -118,7 +120,7 @@ Be direct and solution-focused. Do not be discouraging — frame everything as a
 
 export async function POST(req) {
   try {
-    const { title, description } = await req.json();
+    const { title, description, student_id } = await req.json();
 
     if (!title?.trim() || !description?.trim()) {
       return NextResponse.json({ error: "Title and description are required." }, { status: 400 });
@@ -126,7 +128,7 @@ export async function POST(req) {
 
     // 1. Generate embedding
     const result = await hfClient.featureExtraction({
-      model: "sentence-transformers/all-MiniLM-L6-v2",
+      model:  "sentence-transformers/all-MiniLM-L6-v2",
       inputs: `${title}. ${description}`,
     });
     let inputEmbedding = result;
@@ -134,7 +136,7 @@ export async function POST(req) {
     if (Array.isArray(inputEmbedding[0])) inputEmbedding = inputEmbedding[0];
     inputEmbedding = inputEmbedding.map(Number);
 
-    // 2. Fetch abstracts
+    // 2. Fetch abstracts with embeddings
     const { data: abstracts, error } = await supabase
       .from("abstracts")
       .select("id, title, department, year, abstract_text, embedding")
@@ -154,7 +156,7 @@ export async function POST(req) {
           id:                 a.id,
           title:              a.title,
           department:         a.department ?? "—",
-          year:               a.year ?? "—",
+          year:               a.year       ?? "—",
           abstract_preview:   a.abstract_text?.slice(0, 200) ?? "",
           similarity_percent: percent,
           risk_level:         risk.level,
@@ -168,7 +170,7 @@ export async function POST(req) {
     const score = scored.length > 0 ? scored[0].similarity_percent : 0;
     const risk  = getRiskLevel(score);
 
-    // 4. Build prompt and generate AI response
+    // 4. Build prompt and generate AI recommendations
     const similarList = scored
       .map((m, i) => `${i + 1}. "${m.title}" (${m.similarity_percent}% similar, ${m.department}, ${m.year})`)
       .join("\n");
@@ -185,9 +187,9 @@ export async function POST(req) {
     const recommendations = aiResponse.choices?.[0]?.message?.content?.trim()
       ?? "No recommendations could be generated.";
 
-    // 5. Save report
+    // 5. Save report with student_id
     await supabase.from("similarity_reports").insert({
-      student_id:         null,
+      student_id:         student_id ?? null,
       input_title:        title,
       input_description:  description,
       similarity_score:   score,

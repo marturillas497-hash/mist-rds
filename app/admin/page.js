@@ -1,11 +1,15 @@
+// app/admin/page.js
+
 "use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const supabase = createClient();
   const [abstracts, setAbstracts] = useState([]);
   const [loading, setLoading]     = useState(true);
   const [deleting, setDeleting]   = useState(null);
@@ -30,6 +34,11 @@ export default function AdminDashboard() {
     setDeleting(null);
   }
 
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push("/login");
+  }
+
   return (
     <main className="min-h-screen bg-gray-50">
 
@@ -38,9 +47,17 @@ export default function AdminDashboard() {
         <span className="text-blue-700 font-bold text-lg tracking-tight">
           📚 Capstone Library — Admin
         </span>
-        <Link href="/" className="text-sm text-gray-500 hover:text-blue-700 transition">
-          ← Back to Site
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link href="/" className="text-sm text-gray-500 hover:text-blue-700 transition">
+            ← Back to Site
+          </Link>
+          <button
+            onClick={handleLogout}
+            className="text-sm bg-red-500 text-white px-4 py-1.5 rounded-md hover:bg-red-600 transition"
+          >
+            Logout
+          </button>
+        </div>
       </nav>
 
       <div className="max-w-5xl mx-auto px-6 py-10">
