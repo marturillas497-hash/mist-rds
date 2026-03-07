@@ -101,7 +101,7 @@ export default function AdminDashboard() {
                       {a.has_embedding ? (
                         <span className="text-green-600 text-xs font-semibold">✓ Ready</span>
                       ) : (
-                        <span className="text-orange-500 text-xs font-semibold">⚠ Missing</span>
+                        <span className="text-blue-500 text-xs font-semibold animate-pulse">⏳ Processing...</span>
                       )}
                     </td>
                     <td className="px-5 py-4 text-right">
