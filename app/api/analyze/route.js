@@ -193,7 +193,7 @@ export async function POST(req) {
       input_title:        title,
       input_description:  description,
       similarity_score:   score,
-      risk_level:         risk.color.toLowerCase(),
+      risk_level:         risk.color,
       results_json:       scored,
       ai_recommendations: recommendations,
     });

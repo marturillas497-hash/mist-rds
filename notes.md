@@ -9,10 +9,15 @@ ADMIN
 
 
 ----------------TO BE ADDED----------------
+-- Student Add Abstract Form and Accpt or Reject FOr admin
 -- Fallback. sa karon kay mubalik sa login page bisag naa pay naka login mag conflict ang system ______DONE 
 -- clickable dapat ang entries sa abstract repository - add a view achehe alululoy ______DONE
 
-Issues:
+Technical Add
+-- 
+--The "middleware" file convention is deprecated. Please use "proxy" instead.
+
+Issues to be addressed:
 - mag-update sad ba kung mag up ang year level sa student? 
 
 Possible additions:
