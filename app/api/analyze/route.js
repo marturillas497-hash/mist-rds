@@ -16,7 +16,10 @@ const groq = new OpenAI({
   baseURL: "https://api.groq.com/openai/v1",
 });
 
-const EMBEDDING_DIM = 384;
+const EMBEDDING_DIM  = 384;
+const DAILY_LIMIT    = 5;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function cosineSimilarity(a, b) {
   let dot = 0, magA = 0, magB = 0;
@@ -125,19 +128,64 @@ Your response must follow this exact structure:
 Be direct and solution-focused. Do not be discouraging — frame everything as an opportunity to improve. Do not use filler phrases.`;
 }
 
+// ── Rate limit check ─────────────────────────────────────────────────────────
+
+async function checkRateLimit(userId) {
+  // Admins bypass the rate limit entirely
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .single();
+
+  if (profile?.role === "admin") return { allowed: true, used: 0, remaining: Infinity };
+
+  // Count submissions made today (midnight-to-now in UTC)
+  const startOfDay = new Date();
+  startOfDay.setUTCHours(0, 0, 0, 0);
+
+  const { count, error } = await supabase
+    .from("similarity_reports")
+    .select("id", { count: "exact", head: true })
+    .eq("student_id", userId)
+    .gte("created_at", startOfDay.toISOString());
+
+  if (error) throw new Error(error.message);
+
+  const used      = count ?? 0;
+  const remaining = Math.max(0, DAILY_LIMIT - used);
+
+  return { allowed: used < DAILY_LIMIT, used, remaining };
+}
+
+// ── Route handler ─────────────────────────────────────────────────────────────
+
 export async function POST(req) {
-  // ── Authenticated students only ─────────────────────────────────────────
+  // ── Authenticated users only ────────────────────────────────────────────
   const { user, error: authError } = await requireAuth(req);
   if (authError) return authError;
 
   try {
+    // ── Rate limit check ──────────────────────────────────────────────────
+    const { allowed, remaining } = await checkRateLimit(user.id);
+
+    if (!allowed) {
+      return NextResponse.json(
+        { error: `Daily limit reached. You can submit up to ${DAILY_LIMIT} checks per day. Try again tomorrow.` },
+        {
+          status: 429,
+          headers: { "X-RateLimit-Limit": String(DAILY_LIMIT), "X-RateLimit-Remaining": "0" },
+        }
+      );
+    }
+
     const { title, description } = await req.json();
 
     if (!title?.trim() || !description?.trim()) {
       return NextResponse.json({ error: "Title and description are required." }, { status: 400 });
     }
 
-    // 1. Generate embedding locally via Transformers.js
+    // 1. Generate embedding
     const inputEmbedding = await generateEmbedding(`${title}. ${description}`);
 
     // 2. Fetch abstracts with embeddings
@@ -191,7 +239,7 @@ export async function POST(req) {
     const recommendations = aiResponse.choices?.[0]?.message?.content?.trim()
       ?? "No recommendations could be generated.";
 
-    // 5. Save report — use authenticated user's ID (not from request body)
+    // 5. Save report
     const { data: savedReport } = await supabase.from("similarity_reports").insert({
       student_id:         user.id,
       input_title:        title,
@@ -204,7 +252,10 @@ export async function POST(req) {
     .select("id")
     .single();
 
-    return NextResponse.json({ score, risk, topMatches: scored, recommendations, reportId: savedReport.id });
+    return NextResponse.json(
+      { score, risk, topMatches: scored, recommendations, reportId: savedReport.id, remainingSubmissions: remaining - 1 },
+      { headers: { "X-RateLimit-Limit": String(DAILY_LIMIT), "X-RateLimit-Remaining": String(remaining - 1) } }
+    );
 
   } catch (err) {
     console.error("API error:", err);
