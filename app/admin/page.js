@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function AdminDashboard() {
-  const router = useRouter();
+  const router   = useRouter();
   const supabase = createClient();
   const [abstracts, setAbstracts] = useState([]);
   const [loading, setLoading]     = useState(true);
@@ -20,6 +20,7 @@ export default function AdminDashboard() {
 
   async function fetchAbstracts() {
     setLoading(true);
+    // GET is public — no auth header needed
     const res  = await fetch("/api/abstracts");
     const data = await res.json();
     setAbstracts(data.abstracts ?? []);
@@ -29,7 +30,16 @@ export default function AdminDashboard() {
   async function handleDelete(id, title) {
     if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
     setDeleting(id);
-    await fetch(`/api/abstracts/${id}`, { method: "DELETE" });
+
+    const { data: { session } } = await supabase.auth.getSession();
+
+    await fetch(`/api/abstracts/${id}`, {
+      method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${session.access_token}`,
+      },
+    });
+
     await fetchAbstracts();
     setDeleting(null);
   }

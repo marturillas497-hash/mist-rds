@@ -1,16 +1,20 @@
 "use client";
+// app/admin/edit/[id]/page.js
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { DEPARTMENTS } from "@/lib/constants";
 
 export default function EditAbstractPage({ params }) {
-  const router = useRouter();
-  const [loading, setLoading]     = useState(false);
-  const [fetching, setFetching]   = useState(true);
-  const [error, setError]         = useState("");
-  const [form, setForm]           = useState({
+  const router   = useRouter();
+  const supabase = createClient();
+  const [loading, setLoading]   = useState(false);
+  const [fetching, setFetching] = useState(true);
+  const [error, setError]       = useState("");
+  const [abstractId, setAbstractId] = useState(null);
+  const [form, setForm]         = useState({
     title: "", abstract_text: "", authors: "",
     year: "", department: "", keywords: "",
   });
@@ -18,8 +22,11 @@ export default function EditAbstractPage({ params }) {
   useEffect(() => {
     async function loadAbstract() {
       const { id } = await params;
-      const res    = await fetch(`/api/abstracts/${id}`);
-      const data   = await res.json();
+      setAbstractId(id);
+
+      const res  = await fetch(`/api/abstracts/${id}`);
+      const data = await res.json();
+
       if (data.abstract) {
         setForm({
           title:         data.abstract.title         ?? "",
@@ -47,11 +54,15 @@ export default function EditAbstractPage({ params }) {
     setError("");
     setLoading(true);
 
-    const { id } = await params;
-    const res = await fetch(`/api/abstracts/${id}`, {
+    const { data: { session } } = await supabase.auth.getSession();
+
+    const res = await fetch(`/api/abstracts/${abstractId}`, {
       method:  "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify(form),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(form),
     });
 
     const data = await res.json();

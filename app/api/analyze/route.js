@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { InferenceClient } from "@huggingface/inference";
 import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
+import { requireAuth } from "@/lib/api-auth";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -13,8 +14,8 @@ const supabase = createClient(
 const hfClient = new InferenceClient(process.env.HUGGINGFACE_API_KEY);
 
 const groq = new OpenAI({
-  apiKey:   process.env.GROQ_API_KEY,
-  baseURL:  "https://api.groq.com/openai/v1",
+  apiKey:  process.env.GROQ_API_KEY,
+  baseURL: "https://api.groq.com/openai/v1",
 });
 
 const EMBEDDING_DIM = 384;
@@ -36,7 +37,7 @@ function getRiskLevel(percent) {
   if (percent >= 80) return { level: "Very High", color: "RED"    };
   if (percent >= 60) return { level: "High",      color: "ORANGE" };
   if (percent >= 40) return { level: "Moderate",  color: "YELLOW" };
-  return                    { level: "Low",       color: "GREEN"  };
+  return                    { level: "Low",        color: "GREEN"  };
 }
 
 function normalizeEmbedding(raw) {
@@ -127,8 +128,12 @@ Be direct and solution-focused. Do not be discouraging — frame everything as a
 }
 
 export async function POST(req) {
+  // ── Authenticated students only ─────────────────────────────────────────
+  const { user, error: authError } = await requireAuth(req);
+  if (authError) return authError;
+
   try {
-    const { title, description, student_id } = await req.json();
+    const { title, description } = await req.json();
 
     if (!title?.trim() || !description?.trim()) {
       return NextResponse.json({ error: "Title and description are required." }, { status: 400 });
@@ -195,9 +200,9 @@ export async function POST(req) {
     const recommendations = aiResponse.choices?.[0]?.message?.content?.trim()
       ?? "No recommendations could be generated.";
 
-    // 5. Save report with student_id
-      const { data: savedReport } = await supabase.from("similarity_reports").insert({
-      student_id:         student_id ?? null,
+    // 5. Save report — use authenticated user's ID (not from request body)
+    const { data: savedReport } = await supabase.from("similarity_reports").insert({
+      student_id:         user.id,
       input_title:        title,
       input_description:  description,
       similarity_score:   score,

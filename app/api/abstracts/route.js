@@ -1,6 +1,9 @@
+// app/api/abstracts/route.js
+
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { InferenceClient } from "@huggingface/inference";
+import { requireAdmin } from "@/lib/api-auth";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -27,6 +30,10 @@ export async function GET() {
 }
 
 export async function POST(req) {
+  // ── Admin only ──────────────────────────────────────────────────────────
+  const { error: authError } = await requireAdmin(req);
+  if (authError) return authError;
+
   const body = await req.json();
   const { title, abstract_text, authors, year, department, keywords } = body;
 

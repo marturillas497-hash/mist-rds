@@ -1,14 +1,16 @@
-//capstone-library app/admin/add/page.js
+// mist-rds/app/admin/add/page.js
 
 "use client";
 
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { DEPARTMENTS } from "@/lib/constants";
 
 export default function AddAbstractPage() {
-  const router = useRouter();
+  const router   = useRouter();
+  const supabase = createClient();
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
   const [form, setForm]       = useState({
@@ -28,9 +30,14 @@ export default function AddAbstractPage() {
     setError("");
     setLoading(true);
 
+    const { data: { session } } = await supabase.auth.getSession();
+
     const res = await fetch("/api/abstracts", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`,
+      },
       body: JSON.stringify(form),
     });
 
