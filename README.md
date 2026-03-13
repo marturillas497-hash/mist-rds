@@ -41,8 +41,8 @@ A web-based system that allows students to check the originality of their capsto
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/marturillas497-hash/capstone-library.git
-cd capstone-library
+git clone https://github.com/marturillas497-hash/mist-rds.git
+cd mist-rds
 
 # 2. Install dependencies
 npm install
