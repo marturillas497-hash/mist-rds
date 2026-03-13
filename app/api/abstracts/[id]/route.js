@@ -2,15 +2,13 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { InferenceClient } from "@huggingface/inference";
 import { requireAdmin } from "@/lib/api-auth";
+import { generateEmbedding as getEmbedding } from "@/lib/embeddings";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
-
-const hfClient = new InferenceClient(process.env.HUGGINGFACE_API_KEY);
 
 export async function GET(req, { params }) {
   const { id } = await params;
@@ -40,7 +38,8 @@ export async function PATCH(req, { params }) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  generateEmbedding(id, `${title}. ${abstract_text}`);
+  // Fire-and-forget — intentionally not awaited
+  embedAndStore(id, `${title}. ${abstract_text}`);
 
   return NextResponse.json({ success: true });
 }
@@ -56,18 +55,9 @@ export async function DELETE(req, { params }) {
   return NextResponse.json({ success: true });
 }
 
-async function generateEmbedding(id, text) {
+async function embedAndStore(id, text) {
   try {
-    const result = await hfClient.featureExtraction({
-      model: "sentence-transformers/all-MiniLM-L6-v2",
-      inputs: text,
-    });
-
-    let embedding = result;
-    if (ArrayBuffer.isView(embedding)) embedding = Array.from(embedding);
-    if (Array.isArray(embedding[0])) embedding = embedding[0];
-    embedding = embedding.map(Number);
-
+    const embedding = await getEmbedding(text); // returns number[] of length 384
     await supabase.from("abstracts").update({ embedding }).eq("id", id);
   } catch (err) {
     console.error("Background embedding error:", err.message);

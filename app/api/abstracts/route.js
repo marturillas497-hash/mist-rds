@@ -1,16 +1,16 @@
-// app/api/abstracts/route.js
+// api/abstracts/route.js
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { InferenceClient } from "@huggingface/inference";
 import { requireAdmin } from "@/lib/api-auth";
+import { generateEmbedding as getEmbedding } from "@/lib/embeddings";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const hfClient = new InferenceClient(process.env.HUGGINGFACE_API_KEY);
+// ── GET /api/abstracts ───────────────────────────────────────────────────────
 
 export async function GET() {
   const { data, error } = await supabase
@@ -18,54 +18,62 @@ export async function GET() {
     .select("id, title, department, year, embedding")
     .order("created_at", { ascending: false });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
-  const abstracts = data.map((a) => ({
-    ...a,
-    has_embedding: a.embedding !== null,
-    embedding: undefined,
+  const abstracts = data.map(({ embedding, ...rest }) => ({
+    ...rest,
+    has_embedding: embedding !== null,
   }));
 
   return NextResponse.json({ abstracts });
 }
 
+// ── POST /api/abstracts ──────────────────────────────────────────────────────
+
 export async function POST(req) {
-  // ── Admin only ──────────────────────────────────────────────────────────
   const { error: authError } = await requireAdmin(req);
   if (authError) return authError;
 
-  const body = await req.json();
-  const { title, abstract_text, authors, year, department, keywords } = body;
+  const { title, abstract_text, authors, year, department, keywords } =
+    await req.json();
 
   if (!title?.trim() || !abstract_text?.trim()) {
-    return NextResponse.json({ error: "Title and abstract text are required." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Title and abstract text are required." },
+      { status: 400 }
+    );
   }
 
   const { data, error } = await supabase
     .from("abstracts")
-    .insert({ title, abstract_text, authors, year: year ? parseInt(year) : null, department, keywords })
+    .insert({
+      title,
+      abstract_text,
+      authors,
+      year: year ? parseInt(year, 10) : null,
+      department,
+      keywords,
+    })
     .select("id")
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
-  generateEmbedding(data.id, `${title}. ${abstract_text}`);
+  // Fire-and-forget — intentionally not awaited
+  embedAndStore(data.id, `${title}. ${abstract_text}`);
 
   return NextResponse.json({ id: data.id });
 }
 
-async function generateEmbedding(id, text) {
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+async function embedAndStore(id, text) {
   try {
-    const result = await hfClient.featureExtraction({
-      model: "sentence-transformers/all-MiniLM-L6-v2",
-      inputs: text,
-    });
-
-    let embedding = result;
-    if (ArrayBuffer.isView(embedding)) embedding = Array.from(embedding);
-    if (Array.isArray(embedding[0])) embedding = embedding[0];
-    embedding = embedding.map(Number);
-
+    const embedding = await getEmbedding(text); // returns number[] of length 384
     await supabase.from("abstracts").update({ embedding }).eq("id", id);
   } catch (err) {
     console.error("Background embedding error:", err.message);

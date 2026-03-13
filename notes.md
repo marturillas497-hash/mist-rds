@@ -15,6 +15,7 @@ ADMIN
 -- clickable dapat ang entries sa abstract repository - add a view achehe alululoy **\_\_**DONE
 
 Technical Add
+-- in ai recommendation keep in mind the department of the student
 -- numbering for each studies, ID number per study
 --The "middleware" file convention is deprecated. Please use "proxy" instead.
 

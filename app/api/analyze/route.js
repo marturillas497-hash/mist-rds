@@ -1,17 +1,15 @@
 // app/api/analyze/route.js
 
 import { NextResponse } from "next/server";
-import { InferenceClient } from "@huggingface/inference";
 import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 import { requireAuth } from "@/lib/api-auth";
+import { generateEmbedding } from "@/lib/embeddings";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
-
-const hfClient = new InferenceClient(process.env.HUGGINGFACE_API_KEY);
 
 const groq = new OpenAI({
   apiKey:  process.env.GROQ_API_KEY,
@@ -139,15 +137,8 @@ export async function POST(req) {
       return NextResponse.json({ error: "Title and description are required." }, { status: 400 });
     }
 
-    // 1. Generate embedding
-    const result = await hfClient.featureExtraction({
-      model:  "sentence-transformers/all-MiniLM-L6-v2",
-      inputs: `${title}. ${description}`,
-    });
-    let inputEmbedding = result;
-    if (ArrayBuffer.isView(inputEmbedding)) inputEmbedding = Array.from(inputEmbedding);
-    if (Array.isArray(inputEmbedding[0])) inputEmbedding = inputEmbedding[0];
-    inputEmbedding = inputEmbedding.map(Number);
+    // 1. Generate embedding locally via Transformers.js
+    const inputEmbedding = await generateEmbedding(`${title}. ${description}`);
 
     // 2. Fetch abstracts with embeddings
     const { data: abstracts, error } = await supabase

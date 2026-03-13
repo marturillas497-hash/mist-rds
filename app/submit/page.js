@@ -47,10 +47,15 @@ export default function SubmitPage() {
     setLoading(true);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+
       const res = await fetch("/api/analyze", {
         method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ title, description, student_id: user.id }),
+        headers: {
+          "Content-Type":  "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ title, description }),
       });
 
       const data = await res.json();
