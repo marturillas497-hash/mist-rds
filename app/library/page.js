@@ -52,7 +52,7 @@ export default function LibraryPage() {
       } else {
         fetchKeyword();
       }
-    }, 500);
+    }, 800);
 
     return () => clearTimeout(debounceRef.current);
   }, [search, dept, year, authLoading]);
