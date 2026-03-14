@@ -16,7 +16,7 @@ const groq = new OpenAI({
   baseURL: "https://api.groq.com/openai/v1",
 });
 
-const EMBEDDING_DIM  = 384;
+const EMBEDDING_DIM  = 512;
 const DAILY_LIMIT    = 5;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

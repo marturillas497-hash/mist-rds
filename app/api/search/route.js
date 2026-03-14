@@ -9,7 +9,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const EMBEDDING_DIM = 384;
+const EMBEDDING_DIM = 512;
 
 function cosineSimilarity(a, b) {
   let dot = 0, magA = 0, magB = 0;
@@ -18,9 +18,9 @@ function cosineSimilarity(a, b) {
     magA += a[i] * a[i];
     magB += b[i] * b[i];
   }
-  return (Math.sqrt(magA) === 0 || Math.sqrt(magB) === 0)
-    ? 0
-    : dot / (Math.sqrt(magA) * Math.sqrt(magB));
+  magA = Math.sqrt(magA);
+  magB = Math.sqrt(magB);
+  return (magA === 0 || magB === 0) ? 0 : dot / (magA * magB);
 }
 
 function normalizeEmbedding(raw) {
@@ -50,7 +50,7 @@ export async function GET(req) {
     queryEmbedding = await generateEmbedding(query, "query");
   } catch (err) {
     console.error("Search embedding failed:", err.message);
-    return NextResponse.json({ error: "Search failed." }, { status: 500 });
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 
   // 2. Fetch abstracts (apply dept/year filters if provided)
@@ -71,12 +71,12 @@ export async function GET(req) {
       const stored = normalizeEmbedding(a.embedding);
       if (!stored) return null;
       const similarity = parseFloat((cosineSimilarity(queryEmbedding, stored) * 100).toFixed(1));
-      const { embedding, ...rest } = a; // strip embedding from response
+      const { embedding, ...rest } = a;
       return { ...rest, similarity };
     })
     .filter(Boolean)
     .sort((a, b) => b.similarity - a.similarity)
-    .slice(0, 20); // top 20 results
+    .slice(0, 20);
 
   return NextResponse.json({ results });
 }
