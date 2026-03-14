@@ -9,31 +9,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const EMBEDDING_DIM = 512;
-
-function cosineSimilarity(a, b) {
-  let dot = 0, magA = 0, magB = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot  += a[i] * b[i];
-    magA += a[i] * a[i];
-    magB += b[i] * b[i];
-  }
-  magA = Math.sqrt(magA);
-  magB = Math.sqrt(magB);
-  return (magA === 0 || magB === 0) ? 0 : dot / (magA * magB);
-}
-
-function normalizeEmbedding(raw) {
-  if (!raw) return null;
-  try {
-    if (typeof raw === "string") raw = JSON.parse(raw);
-    if (Array.isArray(raw[0])) raw = raw[0];
-    const embedding = raw.map(Number);
-    if (embedding.length !== EMBEDDING_DIM) return null;
-    return embedding;
-  } catch { return null; }
-}
-
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const query = searchParams.get("q")?.trim();
@@ -53,30 +28,21 @@ export async function GET(req) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 
-  // 2. Fetch abstracts (apply dept/year filters if provided)
-  let dbQuery = supabase
-    .from("abstracts")
-    .select("id, title, authors, department, year, keywords, embedding")
-    .not("embedding", "is", null);
+  // 2. Run pgvector similarity search via RPC
+  const { data, error } = await supabase.rpc("match_abstracts", {
+    query_embedding: queryEmbedding,
+    match_count:     20,
+    filter_dept:     dept,
+    filter_year:     year ? parseInt(year) : null,
+  });
 
-  if (dept) dbQuery = dbQuery.eq("department", dept);
-  if (year) dbQuery = dbQuery.eq("year", parseInt(year));
-
-  const { data, error } = await dbQuery;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // 3. Score and rank by cosine similarity
-  const results = data
-    .map((a) => {
-      const stored = normalizeEmbedding(a.embedding);
-      if (!stored) return null;
-      const similarity = parseFloat((cosineSimilarity(queryEmbedding, stored) * 100).toFixed(1));
-      const { embedding, ...rest } = a;
-      return { ...rest, similarity };
-    })
-    .filter(Boolean)
-    .sort((a, b) => b.similarity - a.similarity)
-    .slice(0, 20);
+  // 3. Format scores as percentages
+  const results = data.map((a) => ({
+    ...a,
+    similarity: parseFloat((a.similarity * 100).toFixed(1)),
+  }));
 
   return NextResponse.json({ results });
 }

@@ -16,40 +16,15 @@ const groq = new OpenAI({
   baseURL: "https://api.groq.com/openai/v1",
 });
 
-const EMBEDDING_DIM  = 512;
-const DAILY_LIMIT    = 5;
+const DAILY_LIMIT = 5;
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function cosineSimilarity(a, b) {
-  let dot = 0, magA = 0, magB = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot  += a[i] * b[i];
-    magA += a[i] * a[i];
-    magB += b[i] * b[i];
-  }
-  magA = Math.sqrt(magA);
-  magB = Math.sqrt(magB);
-  if (magA === 0 || magB === 0) return 0;
-  return dot / (magA * magB);
-}
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function getRiskLevel(percent) {
   if (percent >= 80) return { level: "Very High", color: "RED"    };
   if (percent >= 60) return { level: "High",      color: "ORANGE" };
   if (percent >= 40) return { level: "Moderate",  color: "YELLOW" };
   return                    { level: "Low",        color: "GREEN"  };
-}
-
-function normalizeEmbedding(raw) {
-  if (!raw) return null;
-  try {
-    if (typeof raw === "string") raw = JSON.parse(raw);
-    if (Array.isArray(raw[0])) raw = raw[0];
-    const embedding = raw.map(Number);
-    if (embedding.length !== EMBEDDING_DIM) return null;
-    return embedding;
-  } catch { return null; }
 }
 
 function buildPrompt(title, description, score, similarList) {
@@ -128,10 +103,9 @@ Your response must follow this exact structure:
 Be direct and solution-focused. Do not be discouraging — frame everything as an opportunity to improve. Do not use filler phrases.`;
 }
 
-// ── Rate limit check ─────────────────────────────────────────────────────────
+// ── Rate limit check ──────────────────────────────────────────────────────────
 
 async function checkRateLimit(userId) {
-  // Admins bypass the rate limit entirely
   const { data: profile } = await supabase
     .from("profiles")
     .select("role")
@@ -140,7 +114,6 @@ async function checkRateLimit(userId) {
 
   if (profile?.role === "admin") return { allowed: true, used: 0, remaining: Infinity };
 
-  // Count submissions made today (midnight-to-now in UTC)
   const startOfDay = new Date();
   startOfDay.setUTCHours(0, 0, 0, 0);
 
@@ -161,12 +134,10 @@ async function checkRateLimit(userId) {
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req) {
-  // ── Authenticated users only ────────────────────────────────────────────
   const { user, error: authError } = await requireAuth(req);
   if (authError) return authError;
 
   try {
-    // ── Rate limit check ──────────────────────────────────────────────────
     const { allowed, remaining } = await checkRateLimit(user.id);
 
     if (!allowed) {
@@ -188,36 +159,31 @@ export async function POST(req) {
     // 1. Generate embedding
     const inputEmbedding = await generateEmbedding(`${title}. ${description}`, "query");
 
-    // 2. Fetch abstracts with embeddings
-    const { data: abstracts, error } = await supabase
-      .from("abstracts")
-      .select("id, title, department, year, abstract_text, embedding")
-      .not("embedding", "is", null);
+    // 2. Run pgvector similarity search via RPC
+    const { data: abstracts, error } = await supabase.rpc("match_abstracts", {
+      query_embedding: inputEmbedding,
+      match_count:     5,
+      filter_dept:     null,
+      filter_year:     null,
+    });
 
     if (error) throw new Error(error.message);
 
-    // 3. Score and rank
-    const scored = abstracts
-      .map((a) => {
-        const stored = normalizeEmbedding(a.embedding);
-        if (!stored) return null;
-        const sim     = cosineSimilarity(inputEmbedding, stored);
-        const percent = parseFloat((sim * 100).toFixed(2));
-        const risk    = getRiskLevel(percent);
-        return {
-          id:                 a.id,
-          title:              a.title,
-          department:         a.department ?? "—",
-          year:               a.year       ?? "—",
-          abstract_preview:   a.abstract_text?.slice(0, 200) ?? "",
-          similarity_percent: percent,
-          risk_level:         risk.level,
-          color:              risk.color,
-        };
-      })
-      .filter(Boolean)
-      .sort((a, b) => b.similarity_percent - a.similarity_percent)
-      .slice(0, 5);
+    // 3. Format results
+    const scored = abstracts.map((a) => {
+      const percent = parseFloat((a.similarity * 100).toFixed(2));
+      const risk    = getRiskLevel(percent);
+      return {
+        id:                 a.id,
+        title:              a.title,
+        department:         a.department ?? "—",
+        year:               a.year       ?? "—",
+        abstract_preview:   a.abstract_text?.slice(0, 200) ?? "",
+        similarity_percent: percent,
+        risk_level:         risk.level,
+        color:              risk.color,
+      };
+    });
 
     const score = scored.length > 0 ? scored[0].similarity_percent : 0;
     const risk  = getRiskLevel(score);
