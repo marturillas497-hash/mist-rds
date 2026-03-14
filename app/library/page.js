@@ -9,8 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { DEPARTMENTS } from "@/lib/constants";
 import Navbar from "@/components/Navbar";
 
-// Queries with more than 3 words are treated as semantic searches
-const SEMANTIC_THRESHOLD = 1;
+const SEMANTIC_THRESHOLD = 2;
 
 export default function LibraryPage() {
   const router   = useRouter();
@@ -20,11 +19,10 @@ export default function LibraryPage() {
   const [abstracts, setAbstracts]           = useState([]);
   const [loading, setLoading]               = useState(true);
   const [search, setSearch]                 = useState("");
+  const [committedSearch, setCommittedSearch] = useState("");
   const [dept, setDept]                     = useState("");
   const [year, setYear]                     = useState("");
   const [isSemanticMode, setIsSemanticMode] = useState(false);
-
-  const debounceRef = useRef(null);
 
   // ── Auth check ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -37,28 +35,30 @@ export default function LibraryPage() {
     });
   }, []);
 
-  // ── Search ─────────────────────────────────────────────────────────────────
+  // ── Search — fires on committed search, dept, or year change ──────────────
   useEffect(() => {
-    if (authLoading) return; // don't fetch until auth is confirmed
+    if (authLoading) return;
 
-    clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      const wordCount = search.trim().split(/\s+/).filter(Boolean).length;
-      const semantic  = wordCount > SEMANTIC_THRESHOLD;
-      setIsSemanticMode(semantic && search.trim().length > 0);
+    const wordCount = committedSearch.trim().split(/\s+/).filter(Boolean).length;
+    const semantic  = wordCount > SEMANTIC_THRESHOLD && committedSearch.trim().length > 0;
+    setIsSemanticMode(semantic);
 
-      if (semantic && search.trim().length > 0) {
-        fetchSemantic();
-      } else {
-        fetchKeyword();
-      }
-    }, 800);
+    if (semantic) {
+      fetchSemantic(committedSearch);
+    } else {
+      fetchKeyword(committedSearch);
+    }
+  }, [committedSearch, dept, year, authLoading]);
 
-    return () => clearTimeout(debounceRef.current);
-  }, [search, dept, year, authLoading]);
+  // ── Commit search on Enter key ─────────────────────────────────────────────
+  function handleKeyDown(e) {
+    if (e.key === "Enter") {
+      setCommittedSearch(search.trim());
+    }
+  }
 
-  // ── Keyword search (existing behaviour) ───────────────────────────────────
-  async function fetchKeyword() {
+  // ── Keyword search ─────────────────────────────────────────────────────────
+  async function fetchKeyword(term) {
     setLoading(true);
 
     let query = supabase
@@ -66,9 +66,9 @@ export default function LibraryPage() {
       .select("id, title, authors, department, year, keywords")
       .order("created_at", { ascending: false });
 
-    if (dept)          query = query.eq("department", dept);
-    if (year)          query = query.eq("year", parseInt(year));
-    if (search.trim()) query = query.ilike("title", `%${search}%`);
+    if (dept)        query = query.eq("department", dept);
+    if (year)        query = query.eq("year", parseInt(year));
+    if (term.trim()) query = query.ilike("title", `%${term}%`);
 
     const { data, error } = await query;
     if (error) console.error("Fetch error:", error.message);
@@ -78,10 +78,10 @@ export default function LibraryPage() {
   }
 
   // ── Semantic search ────────────────────────────────────────────────────────
-  async function fetchSemantic() {
+  async function fetchSemantic(term) {
     setLoading(true);
 
-    const params = new URLSearchParams({ q: search.trim() });
+    const params = new URLSearchParams({ q: term.trim() });
     if (dept) params.set("dept", dept);
     if (year) params.set("year", year);
 
@@ -94,8 +94,13 @@ export default function LibraryPage() {
     setLoading(false);
   }
 
+  function handleSearch() {
+    setCommittedSearch(search.trim());
+  }
+
   function clearFilters() {
     setSearch("");
+    setCommittedSearch("");
     setDept("");
     setYear("");
     setIsSemanticMode(false);
@@ -130,6 +135,7 @@ export default function LibraryPage() {
               placeholder="Search by title or describe a topic..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={handleKeyDown}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {isSemanticMode && (
@@ -138,6 +144,12 @@ export default function LibraryPage() {
               </span>
             )}
           </div>
+          <button
+            onClick={handleSearch}
+            className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-medium px-4 py-2 rounded-lg transition whitespace-nowrap"
+          >
+            Search
+          </button>
           <select
             value={dept}
             onChange={(e) => setDept(e.target.value)}
@@ -159,13 +171,13 @@ export default function LibraryPage() {
             onClick={clearFilters}
             className="text-sm text-gray-500 hover:text-red-500 transition whitespace-nowrap"
           >
-            Clear filters
+            Clear
           </button>
         </div>
 
         {isSemanticMode && (
           <p className="text-xs text-blue-600 mb-4 -mt-2">
-            Showing semantically similar results for &ldquo;{search}&rdquo;
+            Showing semantically similar results for &ldquo;{committedSearch}&rdquo;
           </p>
         )}
 
