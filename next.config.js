@@ -22,11 +22,7 @@ const nextConfig = {
     return config;
   },
 
-  // Disable the edge runtime for routes that use Transformers.js
-  // (ONNX / WASM can't run in the Edge runtime)
-  experimental: {
-    serverComponentsExternalPackages: ["@xenova/transformers", "onnxruntime-node"],
-  },
+  serverExternalPackages: ["@xenova/transformers", "onnxruntime-node"],
 };
 
 export default nextConfig;
