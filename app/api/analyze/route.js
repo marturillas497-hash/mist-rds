@@ -186,7 +186,7 @@ export async function POST(req) {
     }
 
     // 1. Generate embedding
-    const inputEmbedding = await generateEmbedding(`${title}. ${description}`);
+    const inputEmbedding = await generateEmbedding(`${title}. ${description}`, "query");
 
     // 2. Fetch abstracts with embeddings
     const { data: abstracts, error } = await supabase

@@ -4,16 +4,19 @@
 
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { DEPARTMENTS } from "@/lib/constants";
 import Navbar from "@/components/Navbar";
 
 // Queries with more than 3 words are treated as semantic searches
-const SEMANTIC_THRESHOLD = 3;
+const SEMANTIC_THRESHOLD = 1;
 
 export default function LibraryPage() {
+  const router   = useRouter();
   const supabase = createClient();
 
+  const [authLoading, setAuthLoading]       = useState(true);
   const [abstracts, setAbstracts]           = useState([]);
   const [loading, setLoading]               = useState(true);
   const [search, setSearch]                 = useState("");
@@ -23,8 +26,21 @@ export default function LibraryPage() {
 
   const debounceRef = useRef(null);
 
+  // ── Auth check ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    // Debounce — wait 500ms after user stops typing before searching
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) {
+        router.replace("/login");
+      } else {
+        setAuthLoading(false);
+      }
+    });
+  }, []);
+
+  // ── Search ─────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (authLoading) return; // don't fetch until auth is confirmed
+
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       const wordCount = search.trim().split(/\s+/).filter(Boolean).length;
@@ -39,7 +55,7 @@ export default function LibraryPage() {
     }, 500);
 
     return () => clearTimeout(debounceRef.current);
-  }, [search, dept, year]);
+  }, [search, dept, year, authLoading]);
 
   // ── Keyword search (existing behaviour) ───────────────────────────────────
   async function fetchKeyword() {
@@ -85,6 +101,14 @@ export default function LibraryPage() {
     setIsSemanticMode(false);
   }
 
+  if (authLoading) {
+    return (
+      <main className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-400 text-sm">Loading...</p>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-gray-50">
 
@@ -108,7 +132,6 @@ export default function LibraryPage() {
               onChange={(e) => setSearch(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            {/* Semantic mode badge */}
             {isSemanticMode && (
               <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs bg-blue-100 text-blue-700 font-medium px-2 py-0.5 rounded-full">
                 ✦ Semantic
@@ -140,7 +163,6 @@ export default function LibraryPage() {
           </button>
         </div>
 
-        {/* Semantic search hint */}
         {isSemanticMode && (
           <p className="text-xs text-blue-600 mb-4 -mt-2">
             Showing semantically similar results for &ldquo;{search}&rdquo;

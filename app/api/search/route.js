@@ -47,7 +47,7 @@ export async function GET(req) {
   // 1. Generate embedding for the search query
   let queryEmbedding;
   try {
-    queryEmbedding = await generateEmbedding(query);
+    queryEmbedding = await generateEmbedding(query, "query");
   } catch (err) {
     console.error("Search embedding failed:", err.message);
     return NextResponse.json({ error: "Search failed." }, { status: 500 });
