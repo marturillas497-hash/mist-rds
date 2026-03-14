@@ -10,21 +10,54 @@ import { createClient } from "@/lib/supabase/client";
 export default function AdminDashboard() {
   const router   = useRouter();
   const supabase = createClient();
-  const [abstracts, setAbstracts] = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [deleting, setDeleting]   = useState(null);
+
+  const [abstracts, setAbstracts]   = useState([]);
+  const [topViewed, setTopViewed]   = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [deleting, setDeleting]     = useState(null);
 
   useEffect(() => {
     fetchAbstracts();
+    fetchTopViewed();
   }, []);
 
   async function fetchAbstracts() {
     setLoading(true);
-    // GET is public — no auth header needed
     const res  = await fetch("/api/abstracts");
     const data = await res.json();
     setAbstracts(data.abstracts ?? []);
     setLoading(false);
+  }
+
+  async function fetchTopViewed() {
+    const { data, error } = await supabase
+      .from("abstract_views")
+      .select("abstract_id, abstracts(title, department, year)")
+      .limit(200); // fetch recent views, aggregate client-side
+
+    if (error || !data) return;
+
+    // Count views per abstract
+    const counts = {};
+    for (const row of data) {
+      const key = row.abstract_id;
+      if (!counts[key]) {
+        counts[key] = {
+          abstract_id: key,
+          title:       row.abstracts?.title      ?? "—",
+          department:  row.abstracts?.department ?? "—",
+          year:        row.abstracts?.year       ?? "—",
+          views:       0,
+        };
+      }
+      counts[key].views++;
+    }
+
+    const sorted = Object.values(counts)
+      .sort((a, b) => b.views - a.views)
+      .slice(0, 5);
+
+    setTopViewed(sorted);
   }
 
   async function handleDelete(id, title) {
@@ -35,9 +68,7 @@ export default function AdminDashboard() {
 
     await fetch(`/api/abstracts/${id}`, {
       method: "DELETE",
-      headers: {
-        "Authorization": `Bearer ${session.access_token}`,
-      },
+      headers: { "Authorization": `Bearer ${session.access_token}` },
     });
 
     await fetchAbstracts();
@@ -72,6 +103,53 @@ export default function AdminDashboard() {
 
       <div className="max-w-5xl mx-auto px-6 py-10">
 
+        {/* ── ANALYTICS ─────────────────────────────────────────────────── */}
+        <div className="mb-10">
+          <h2 className="text-lg font-bold text-gray-900 mb-4">📊 Most Viewed Abstracts</h2>
+          {topViewed.length === 0 ? (
+            <div className="bg-white border border-gray-200 rounded-xl px-6 py-8 text-center text-gray-400 text-sm">
+              No view data yet.
+            </div>
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="text-left px-5 py-3 text-gray-500 font-medium">#</th>
+                    <th className="text-left px-5 py-3 text-gray-500 font-medium">Title</th>
+                    <th className="text-left px-5 py-3 text-gray-500 font-medium">Department</th>
+                    <th className="text-left px-5 py-3 text-gray-500 font-medium">Year</th>
+                    <th className="text-left px-5 py-3 text-gray-500 font-medium">Views</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {topViewed.map((a, i) => (
+                    <tr key={a.abstract_id} className="hover:bg-gray-50 transition">
+                      <td className="px-5 py-4 text-gray-400 font-medium">{i + 1}</td>
+                      <td className="px-5 py-4 font-medium">
+                        <Link
+                          href={`/library/${a.abstract_id}?from=admin`}
+                          className="text-gray-900 hover:text-blue-700 transition"
+                        >
+                          {a.title}
+                        </Link>
+                      </td>
+                      <td className="px-5 py-4 text-gray-500">{a.department}</td>
+                      <td className="px-5 py-4 text-gray-500">{a.year}</td>
+                      <td className="px-5 py-4">
+                        <span className="bg-blue-50 text-blue-700 text-xs font-semibold px-2 py-1 rounded-full">
+                          {a.views} {a.views === 1 ? "view" : "views"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* ── ABSTRACT REPOSITORY ───────────────────────────────────────── */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Abstract Repository</h1>
@@ -105,7 +183,10 @@ export default function AdminDashboard() {
                 {abstracts.map((a) => (
                   <tr key={a.id} className="hover:bg-gray-50 transition">
                     <td className="px-5 py-4 font-medium max-w-xs truncate">
-                      <Link href={`/library/${a.id}?from=admin`} className="text-gray-900 hover:text-blue-700 transition">
+                      <Link
+                        href={`/library/${a.id}?from=admin`}
+                        className="text-gray-900 hover:text-blue-700 transition"
+                      >
                         {a.title}
                       </Link>
                     </td>
@@ -141,6 +222,7 @@ export default function AdminDashboard() {
             </table>
           </div>
         )}
+
       </div>
     </main>
   );

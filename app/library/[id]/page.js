@@ -17,6 +17,13 @@ export default async function AbstractDetailPage({ params, searchParams }) {
 
   if (error || !abstract) return notFound();
 
+  // ── Log view ───────────────────────────────────────────────────────────────
+  const { data: { user } } = await supabase.auth.getUser();
+  await supabase.from("abstract_views").insert({
+    abstract_id: id,
+    student_id:  user?.id ?? null,
+  });
+
   const backHref  = from === "admin" ? "/admin" : "/library";
   const backLabel = from === "admin" ? "← Back to Admin Panel" : "← Back to Library";
 
