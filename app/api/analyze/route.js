@@ -9,7 +9,7 @@ import { DAILY_LIMIT } from "@/lib/constants";
 import { getRiskLevel } from "@/lib/similarity";
 
 const groq = new OpenAI({
-  apiKey:  process.env.GROQ_API_KEY,
+  apiKey: process.env.GROQ_API_KEY,
   baseURL: "https://api.groq.com/openai/v1",
 });
 
@@ -100,7 +100,9 @@ async function checkRateLimit(userId) {
     .eq("id", userId)
     .single();
 
-  if (profile?.role === "admin") return { allowed: true, used: 0, remaining: Infinity };
+  if (profile?.role === "admin") {
+    return { allowed: true, used: 0, remaining: Infinity };
+  }
 
   const startOfDay = new Date();
   startOfDay.setUTCHours(0, 0, 0, 0);
@@ -113,7 +115,7 @@ async function checkRateLimit(userId) {
 
   if (error) throw new Error(error.message);
 
-  const used      = count ?? 0;
+  const used = count ?? 0;
   const remaining = Math.max(0, DAILY_LIMIT - used);
 
   return { allowed: used < DAILY_LIMIT, used, remaining };
@@ -133,7 +135,10 @@ export async function POST(req) {
         { error: `Daily limit reached. You can submit up to ${DAILY_LIMIT} checks per day. Try again tomorrow.` },
         {
           status: 429,
-          headers: { "X-RateLimit-Limit": String(DAILY_LIMIT), "X-RateLimit-Remaining": "0" },
+          headers: {
+            "X-RateLimit-Limit": String(DAILY_LIMIT),
+            "X-RateLimit-Remaining": "0",
+          },
         }
       );
     }
@@ -141,76 +146,98 @@ export async function POST(req) {
     const { title, description } = await req.json();
 
     if (!title?.trim() || !description?.trim()) {
-      return NextResponse.json({ error: "Title and description are required." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Title and description are required." },
+        { status: 400 }
+      );
     }
 
     // 1. Generate embedding
     const inputEmbedding = await generateEmbedding(`${title}. ${description}`, "query");
 
     // 2. Run pgvector similarity search via RPC
-    const { data: abstracts, error } = await supabase.rpc("match_abstracts", {
+    const { data: abstracts, error: rpcError } = await supabase.rpc("match_abstracts", {
       query_embedding: inputEmbedding,
-      match_count:     5,
-      filter_dept:     null,
-      filter_year:     null,
+      match_count: 5,
+      filter_dept: null,
+      filter_year: null,
     });
 
-    if (error) throw new Error(error.message);
+    if (rpcError) throw new Error(rpcError.message);
 
     // 3. Format results
     const scored = abstracts.map((a) => {
       const percent = parseFloat((a.similarity * 100).toFixed(2));
-      const risk    = getRiskLevel(percent);
+      const risk = getRiskLevel(percent);
       return {
-        id:                 a.id,
-        title:              a.title,
-        department:         a.department ?? "—",
-        year:               a.year       ?? "—",
-        abstract_preview:   a.abstract_text?.slice(0, 200) ?? "",
+        id: a.id,
+        title: a.title,
+        department: a.department ?? "—",
+        year: a.year ?? "—",
+        abstract_preview: a.abstract_text?.slice(0, 200) ?? "",
         similarity_percent: percent,
-        risk_level:         risk.level,
-        color:              risk.color,
+        risk_level: risk.level,
+        color: risk.color,
       };
     });
 
     const score = scored.length > 0 ? scored[0].similarity_percent : 0;
-    const risk  = getRiskLevel(score);
+    const risk = getRiskLevel(score);
 
     // 4. Build prompt and generate AI recommendations
     const similarList = scored
-      .map((m, i) => `${i + 1}. "${m.title}" (${m.similarity_percent}% similar, ${m.department}, ${m.year})`)
+      .map(
+        (m, i) =>
+          `${i + 1}. "${m.title}" (${m.similarity_percent}% similar, ${m.department}, ${m.year})`
+      )
       .join("\n");
 
     const prompt = buildPrompt(title, description, score, similarList);
 
     const aiResponse = await groq.chat.completions.create({
-      model:       "llama-3.3-70b-versatile",
-      messages:    [{ role: "user", content: prompt }],
+      model: "llama-3.3-70b-versatile",
+      messages: [{ role: "user", content: prompt }],
       temperature: 0.7,
-      max_tokens:  800,
+      max_tokens: 800,
     });
 
-    const recommendations = aiResponse.choices?.[0]?.message?.content?.trim()
-      ?? "No recommendations could be generated.";
+    const recommendations =
+      aiResponse.choices?.[0]?.message?.content?.trim() ??
+      "No recommendations could be generated.";
 
     // 5. Save report
-    const { data: savedReport } = await supabase.from("similarity_reports").insert({
-      student_id:         user.id,
-      input_title:        title,
-      input_description:  description,
-      similarity_score:   score,
-      risk_level:         risk.color,
-      results_json:       scored,
-      ai_recommendations: recommendations,
-    })
-    .select("id")
-    .single();
+    const { data: savedReport, error: insertError } = await supabase
+      .from("similarity_reports")
+      .insert({
+        student_id: user.id,
+        input_title: title,
+        input_description: description,
+        similarity_score: score,
+        risk_level: risk.color,
+        results_json: scored,
+        ai_recommendations: recommendations,
+      })
+      .select("id")
+      .single();
+
+    if (insertError) throw new Error(insertError.message);
 
     return NextResponse.json(
-      { score, risk, topMatches: scored, recommendations, reportId: savedReport.id, remainingSubmissions: remaining - 1 },
-      { headers: { "X-RateLimit-Limit": String(DAILY_LIMIT), "X-RateLimit-Remaining": String(remaining - 1) } }
+      {
+        score,
+        risk,
+        topMatches: scored,
+        recommendations,
+        reportId: savedReport.id,
+        remainingSubmissions: remaining - 1,
+      },
+      {
+        headers: {
+          "X-RateLimit-Limit": String(DAILY_LIMIT),
+          "X-RateLimit-Remaining": String(remaining - 1),
+        },
+      }
     );
-
   } catch (err) {
     console.error("API error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
