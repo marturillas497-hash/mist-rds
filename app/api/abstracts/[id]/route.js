@@ -3,7 +3,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase/service";
 import { requireAdmin } from "@/lib/api-auth";
-import { embedAndStore } from "@/lib/embeddings";
+import { generateEmbedding } from "@/lib/embeddings";
 
 export async function GET(req, { params }) {
   const { id } = await params;
@@ -18,7 +18,6 @@ export async function GET(req, { params }) {
 }
 
 export async function PATCH(req, { params }) {
-  // ── Admin only ──────────────────────────────────────────────────────────
   const { error: authError } = await requireAdmin(req);
   if (authError) return authError;
 
@@ -33,14 +32,20 @@ export async function PATCH(req, { params }) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Fire-and-forget — intentionally not awaited
-  embedAndStore(supabase, id, `${title}. ${abstract_text}`);
+  // Fire-and-forget embedding generation — intentionally not awaited
+  (async () => {
+    try {
+      const embedding = await generateEmbedding(`${title}. ${abstract_text}`, "document");
+      await supabase.from("abstracts").update({ embedding }).eq("id", id);
+    } catch (err) {
+      console.error("Background embedding error:", err.message);
+    }
+  })();
 
   return NextResponse.json({ success: true });
 }
 
 export async function DELETE(req, { params }) {
-  // ── Admin only ──────────────────────────────────────────────────────────
   const { error: authError } = await requireAdmin(req);
   if (authError) return authError;
 
