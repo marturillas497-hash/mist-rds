@@ -1,20 +1,33 @@
-# 📚 MIST Research Discovery System
+# MIST Research Discovery System
 
-A web-based system for Makilala Institute of Science and Technology that allows students to check the originality of their capstone research proposals by comparing them against existing abstracts using AI-powered similarity analysis.
+> A web-based capstone and thesis discovery platform for Makilala Institute of Science and Technology — with semantic similarity detection and AI-powered topic recommendations.
+
+**Live:** https://mist-rds-umber.vercel.app &nbsp;|&nbsp; **GitHub:** https://github.com/marturillas497-hash/mist-rds
+
+---
+
+## Overview
+
+MIST RDS helps students explore completed capstone and thesis studies from MIST's own institutional library, check whether their proposed research topics are conceptually similar to existing work, and receive AI-generated guidance for refining their ideas — all before making a single visit to the library.
+
+Librarians, research coordinators, and instructors get a centralized admin dashboard to manage and monitor institutional research outputs by program and academic year.
 
 ---
 
 ## Features
 
-- **AI Similarity Check** — Compares research proposals against existing abstracts using BGE embeddings (`BAAI/bge-small-en-v1.5`, 384-dim) via HuggingFace Inference API
-- **Semantic Library Search** — Search abstracts by concept or topic using vector similarity (triggers on 2+ words), with keyword fallback for short queries
-- **Risk Level Report** — Color-coded originality score: GREEN (<40%) · YELLOW (40–59%) · ORANGE (60–79%) · RED (≥80%)
-- **AI Recommendations** — Groq-powered (`llama-3.3-70b-versatile`) advisory notes tailored to the student's risk level and field
-- **Abstract Library** — Browse and search existing capstone abstracts by title, department, or year — requires login
-- **Student Dashboard** — View past similarity check submissions and their full reports
-- **Admin Dashboard** — Manage the abstract repository (add, edit, delete, embedding status)
-- **Rate Limiting** — Students are limited to 5 similarity checks per day; admins are exempt
-- **Authentication** — Student registration/login with role-based access control; admins use the same login page
+| Feature | Description |
+|---|---|
+| **Semantic Library Search** | Search abstracts by concept or topic using vector similarity. Triggers on 3+ words via Enter or Search button. Results tagged with a **Semantic** badge and % match score. |
+| **AI Similarity Check** | Compares a proposed research topic against existing abstracts using Voyage AI embeddings + pgvector cosine similarity. |
+| **Risk Level Report** | Color-coded originality score based on similarity: GREEN (<40%) · YELLOW (40–59%) · ORANGE (60–79%) · RED (≥80%) |
+| **AI Recommendations** | Groq-powered advisory notes tailored to the student's similarity score and research field. |
+| **Abstract Library** | Browse and filter completed capstone abstracts by title, department, or year. Login required. |
+| **Student Dashboard** | View past similarity check submissions and their full reports. |
+| **Admin Dashboard** | Manage the abstract repository (add, edit, delete) and view analytics including Most Viewed Abstracts. |
+| **Abstract View Tracking** | Logs student views to the `abstract_views` table for admin analytics. |
+| **Rate Limiting** | Students are limited to 5 similarity checks per day. Admins are exempt. |
+| **Authentication** | Role-based access control. Students and admins share the same `/login` page; the system redirects based on role. |
 
 ---
 
@@ -26,21 +39,24 @@ A web-based system for Makilala Institute of Science and Technology that allows 
 | Styling | Tailwind CSS v4 |
 | Database | Supabase (PostgreSQL + pgvector) |
 | Auth | Supabase Auth (`@supabase/ssr`) |
-| Embeddings | HuggingFace Inference API — `BAAI/bge-small-en-v1.5` |
+| Embeddings | Voyage AI — `voyage-3-lite` (512-dim) |
+| Semantic Search | pgvector RPC (`match_abstracts`) with HNSW index |
 | AI Recommendations | Groq API `llama-3.3-70b-versatile` via OpenAI-compatible SDK |
-| Deployment | Vercel |
+| Deployment | Vercel Hobby |
 
 ---
 
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js 18+
 - A Supabase project with pgvector enabled
-- HuggingFace API key
-- Groq API key
+- Voyage AI API key — [dash.voyageai.com](https://dash.voyageai.com/)
+- Groq API key — [console.groq.com](https://console.groq.com/)
 
 ### Installation
+
 ```bash
 # 1. Clone the repository
 git clone https://github.com/marturillas497-hash/mist-rds.git
@@ -49,8 +65,7 @@ cd mist-rds
 # 2. Install dependencies
 npm install
 
-# 3. Create your environment file
-# Copy the variables listed below into a new .env.local file
+# 3. Set up environment variables (see below)
 
 # 4. Run the development server
 npm run dev
@@ -58,20 +73,21 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
----
-
-## Environment Variables
+### Environment Variables
 
 Create a `.env.local` file in the project root:
+
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-HUGGINGFACE_API_KEY=your_huggingface_api_key
+VOYAGE_API_KEY=your_voyage_api_key
 GROQ_API_KEY=your_groq_api_key
 ```
 
 > ⚠️ Never commit `.env.local` to version control. It is already gitignored.
+
+The same variables must also be added to **Vercel Dashboard → Settings → Environment Variables** for production.
 
 ---
 
@@ -79,20 +95,35 @@ GROQ_API_KEY=your_groq_api_key
 
 This project uses Supabase with the following tables:
 
-| Table | Description |
+| Table | Key Fields |
 |---|---|
-| `abstracts` | Capstone abstracts and their 384-dim vector embeddings |
-| `profiles` | Extends Supabase Auth users with role, department, year level, section, and student ID |
-| `similarity_reports` | Student similarity check results, risk levels, and AI recommendations |
+| `abstracts` | `id`, `title`, `abstract_text`, `authors`, `year`, `department`, `keywords`, `embedding vector(512)`, `created_at` |
+| `profiles` | `id`, `role`, `full_name`, `department`, `year_level`, `section`, `student_id`, `created_at` |
+| `similarity_reports` | `id`, `student_id`, `input_title`, `input_description`, `similarity_score`, `risk_level`, `results_json`, `ai_recommendations`, `created_at` |
+| `abstract_views` | `id`, `abstract_id`, `student_id`, `created_at` |
 
 RLS (Row Level Security) is enabled on all tables.
 
----
+### pgvector RPC Function
 
-## Admin Setup
+The `match_abstracts` RPC function performs semantic search with optional department and year filters:
 
-1. Create a user in the Supabase Authentication dashboard
+```sql
+match_abstracts(
+  query_embedding vector(512),
+  match_count      int,
+  filter_dept      text,
+  filter_year      text
+)
+-- Returns: id, title, authors, department, year, keywords, abstract_text, similarity
+-- similarity is a float 0–1; multiply by 100 for % display
+```
+
+### Admin Setup
+
+1. Create a user in the Supabase Authentication dashboard.
 2. Run the following SQL to assign the admin role:
+
 ```sql
 INSERT INTO profiles (id, role, full_name)
 VALUES ('<user-uuid>', 'admin', 'Your Name');
@@ -102,25 +133,36 @@ Admins log in through the same `/login` page as students — the system detects 
 
 ---
 
-## How Embeddings Work
+## How Semantic Search Works
 
-- All embeddings are generated via the HuggingFace Inference API (`BAAI/bge-small-en-v1.5`)
-- Embeddings are generated in the background (fire-and-forget) when adding abstracts, and regenerated automatically when an abstract is edited
-- Search queries use a BGE query prefix for improved retrieval accuracy; stored documents do not
-- If an abstract has no embedding, it is excluded from similarity and search results
+The search pipeline uses two separate services together.
 
----
+**Voyage AI** is a pure embedding generator. It converts text into a 512-dimensional vector representing its semantic meaning. It runs twice per search:
 
-## Rate Limiting
+- When an abstract is saved → generates a **document embedding** stored in the `abstracts` table
+- When a student searches → generates a **query embedding** representing the search intent
 
-Students are limited to **5 similarity checks per day**, tracked via the `similarity_reports` table (no external service needed). The submit page shows a live usage indicator. Admins are exempt from this limit.
+**Supabase / pgvector** handles the comparison. The `match_abstracts` RPC uses the `<=>` cosine distance operator to score and rank every stored abstract vector directly in Postgres.
+
+**Full flow:**
+
+1. Student types 3+ words and presses Enter or clicks Search
+2. Query is committed to the URL (`/library?q=...`)
+3. Frontend calls `GET /api/search?q=...`
+4. API calls Voyage AI → receives 512-dim query vector
+5. API calls `match_abstracts` RPC → pgvector ranks results inside Postgres
+6. Top 20 results returned with % match scores
+7. Results displayed with a **Semantic** badge
+
+> Voyage handles language understanding. Supabase handles comparison and retrieval. Neither can do the other's job.
 
 ---
 
 ## Project Structure
+
 ```
 app/
-├── admin/          # Admin dashboard (manage abstracts)
+├── admin/          # Admin dashboard (manage abstracts, view analytics)
 ├── api/
 │   ├── abstracts/  # CRUD for abstracts + embedding generation
 │   ├── analyze/    # Similarity check endpoint (rate-limited)
@@ -130,20 +172,43 @@ app/
 ├── library/        # Abstract browser with semantic search (login required)
 ├── login/          # Shared login + register page (students and admins)
 └── submit/         # Similarity check submission page
+
 lib/
 ├── api-auth.js     # requireAuth / requireAdmin helpers
-├── embeddings.js   # HuggingFace API embedding with BGE query prefix
-├── supabase/       # Supabase client (browser + server)
-└── constants.js    # Departments list, risk level config
+├── embeddings.js   # Voyage AI embedding generation (query/document types)
+├── supabase/       # Supabase client (browser + server + service)
+└── constants.js    # Departments list, risk level config, DAILY_LIMIT
+
+components/
+├── AdminNavbar.js  # Admin navigation with profile caching
+└── Navbar.js       # Student navigation
 ```
+
+---
+
+## Performance Optimizations
+
+- **Navbar profile caching** — Uses `sessionStorage` under key `mist_profile_cache` to avoid per-route database queries
+- **Search state persistence** — URL params (`/library?q=...&dept=...&year=...`) enable back-button support
+- **HNSW indexing** — pgvector indexes for fast cosine similarity searches
+- **Fire-and-forget embeddings** — Background embedding generation does not block user actions
 
 ---
 
 ## Known Limitations
 
-- Vercel Hobby plan has a 10s function timeout — keep this in mind for large abstract repositories where embedding fetches may be slow
-- The `bge-small-en-v1.5` model has a ~380 word effective limit; longer abstracts are silently truncated
+- Vercel Hobby plan has a **10-second function timeout** — keep this in mind as the abstract repository grows
+- Voyage AI has rate limits — search requires 3+ words and is triggered by Enter/button click, not keystroke
 - Semantic search quality improves as more abstracts are added to the repository
+
+---
+
+## Version History
+
+| Version | Date | Changes |
+|---|---|---|
+| v1.1 | April 2026 | Migrated to Voyage AI embeddings (512-dim), fixed Vercel build errors, updated API integrations, added abstract view tracking |
+| v1.0 | March 2026 | Initial release with HuggingFace embeddings |
 
 ---
 
