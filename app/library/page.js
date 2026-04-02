@@ -2,29 +2,32 @@
 
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { DEPARTMENTS } from "@/lib/constants";
 import Navbar from "@/components/Navbar";
 
-// Queries with more than 3 words are treated as semantic searches
-const SEMANTIC_THRESHOLD = 1;
+const SEMANTIC_THRESHOLD = 2;
 
 export default function LibraryPage() {
-  const router   = useRouter();
-  const supabase = createClient();
+  const router       = useRouter();
+  const searchParams = useSearchParams();
+  const supabase     = createClient();
 
-  const [authLoading, setAuthLoading]       = useState(true);
-  const [abstracts, setAbstracts]           = useState([]);
-  const [loading, setLoading]               = useState(true);
-  const [search, setSearch]                 = useState("");
-  const [dept, setDept]                     = useState("");
-  const [year, setYear]                     = useState("");
+  const [authLoading, setAuthLoading] = useState(true);
+  const [abstracts, setAbstracts]     = useState([]);
+  const [loading, setLoading]         = useState(true);
   const [isSemanticMode, setIsSemanticMode] = useState(false);
 
-  const debounceRef = useRef(null);
+  // Read state from URL
+  const search = searchParams.get("q")  || "";
+  const dept   = searchParams.get("dept") || "";
+  const year   = searchParams.get("year") || "";
+
+  // Local input state (what the user is typing, not yet committed)
+  const [inputValue, setInputValue] = useState(search);
 
   // ── Auth check ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -37,27 +40,60 @@ export default function LibraryPage() {
     });
   }, []);
 
-  // ── Search ─────────────────────────────────────────────────────────────────
+  // ── Search — fires when URL params change ──────────────────────────────────
   useEffect(() => {
-    if (authLoading) return; // don't fetch until auth is confirmed
+    if (authLoading) return;
 
-    clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      const wordCount = search.trim().split(/\s+/).filter(Boolean).length;
-      const semantic  = wordCount > SEMANTIC_THRESHOLD;
-      setIsSemanticMode(semantic && search.trim().length > 0);
+    const wordCount = search.trim().split(/\s+/).filter(Boolean).length;
+    const semantic  = wordCount > SEMANTIC_THRESHOLD && search.trim().length > 0;
+    setIsSemanticMode(semantic);
 
-      if (semantic && search.trim().length > 0) {
-        fetchSemantic();
-      } else {
-        fetchKeyword();
-      }
-    }, 500);
-
-    return () => clearTimeout(debounceRef.current);
+    if (semantic) {
+      fetchSemantic();
+    } else {
+      fetchKeyword();
+    }
   }, [search, dept, year, authLoading]);
 
-  // ── Keyword search (existing behaviour) ───────────────────────────────────
+  // ── Update URL params ──────────────────────────────────────────────────────
+  function commitSearch(value) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value.trim()) {
+      params.set("q", value.trim());
+    } else {
+      params.delete("q");
+    }
+    router.push(`/library?${params.toString()}`);
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === "Enter") commitSearch(inputValue);
+  }
+
+  function handleSearch() {
+    commitSearch(inputValue);
+  }
+
+  function handleDeptChange(e) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (e.target.value) params.set("dept", e.target.value);
+    else params.delete("dept");
+    router.push(`/library?${params.toString()}`);
+  }
+
+  function handleYearChange(e) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (e.target.value) params.set("year", e.target.value);
+    else params.delete("year");
+    router.push(`/library?${params.toString()}`);
+  }
+
+  function clearFilters() {
+    setInputValue("");
+    router.push("/library");
+  }
+
+  // ── Keyword search ─────────────────────────────────────────────────────────
   async function fetchKeyword() {
     setLoading(true);
 
@@ -94,13 +130,6 @@ export default function LibraryPage() {
     setLoading(false);
   }
 
-  function clearFilters() {
-    setSearch("");
-    setDept("");
-    setYear("");
-    setIsSemanticMode(false);
-  }
-
   if (authLoading) {
     return (
       <main className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -128,8 +157,9 @@ export default function LibraryPage() {
             <input
               type="text"
               placeholder="Search by title or describe a topic..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {isSemanticMode && (
@@ -138,9 +168,15 @@ export default function LibraryPage() {
               </span>
             )}
           </div>
+          <button
+            onClick={handleSearch}
+            className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-medium px-4 py-2 rounded-lg transition whitespace-nowrap"
+          >
+            Search
+          </button>
           <select
             value={dept}
-            onChange={(e) => setDept(e.target.value)}
+            onChange={handleDeptChange}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">All Departments</option>
@@ -152,14 +188,14 @@ export default function LibraryPage() {
             type="number"
             placeholder="Year (e.g. 2024)"
             value={year}
-            onChange={(e) => setYear(e.target.value)}
+            onChange={handleYearChange}
             className="w-36 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             onClick={clearFilters}
             className="text-sm text-gray-500 hover:text-red-500 transition whitespace-nowrap"
           >
-            Clear filters
+            Clear
           </button>
         </div>
 

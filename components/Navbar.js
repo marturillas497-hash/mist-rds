@@ -6,6 +6,27 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
+const PROFILE_CACHE_KEY = "mist_profile_cache";
+
+function getCachedProfile() {
+  try {
+    const raw = sessionStorage.getItem(PROFILE_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function setCachedProfile(profile) {
+  try {
+    sessionStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(profile));
+  } catch {}
+}
+
+function clearCachedProfile() {
+  try {
+    sessionStorage.removeItem(PROFILE_CACHE_KEY);
+  } catch {}
+}
+
 export default function Navbar() {
   const router   = useRouter();
   const pathname = usePathname();
@@ -17,21 +38,38 @@ export default function Navbar() {
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
-      if (!data.user) { setLoading(false); return; }
+      if (!data.user) {
+        clearCachedProfile();
+        setLoading(false);
+        return;
+      }
+
       setUser(data.user);
 
+      // Return cached role if available — skip the DB query
+      const cached = getCachedProfile();
+      if (cached?.userId === data.user.id) {
+        setRole(cached.role);
+        setLoading(false);
+        return;
+      }
+
+      // Cache miss — fetch from DB and store
       const { data: profile } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", data.user.id)
         .single();
 
-      setRole(profile?.role ?? null);
+      const role = profile?.role ?? null;
+      setRole(role);
+      setCachedProfile({ userId: data.user.id, role });
       setLoading(false);
     });
-  }, [pathname]); // re-check on route change
+  }, [pathname]);
 
   async function handleLogout() {
+    clearCachedProfile();
     await supabase.auth.signOut();
     setUser(null);
     setRole(null);

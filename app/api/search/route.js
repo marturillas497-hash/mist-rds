@@ -3,7 +3,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase/service";
 import { generateEmbedding } from "@/lib/embeddings";
-import { cosineSimilarity, normalizeEmbedding } from "@/lib/similarity";
 
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
@@ -21,33 +20,24 @@ export async function GET(req) {
     queryEmbedding = await generateEmbedding(query, "query");
   } catch (err) {
     console.error("Search embedding failed:", err.message);
-    return NextResponse.json({ error: "Search failed." }, { status: 500 });
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 
-  // 2. Fetch abstracts (apply dept/year filters if provided)
-  let dbQuery = supabase
-    .from("abstracts")
-    .select("id, title, authors, department, year, keywords, embedding")
-    .not("embedding", "is", null);
+  // 2. Run pgvector similarity search via RPC
+  const { data, error } = await supabase.rpc("match_abstracts", {
+    query_embedding: queryEmbedding,
+    match_count:     20,
+    filter_dept:     dept,
+    filter_year:     year ? parseInt(year) : null,
+  });
 
-  if (dept) dbQuery = dbQuery.eq("department", dept);
-  if (year) dbQuery = dbQuery.eq("year", parseInt(year));
-
-  const { data, error } = await dbQuery;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // 3. Score and rank by cosine similarity
-  const results = data
-    .map((a) => {
-      const stored = normalizeEmbedding(a.embedding);
-      if (!stored) return null;
-      const similarity = parseFloat((cosineSimilarity(queryEmbedding, stored) * 100).toFixed(1));
-      const { embedding, ...rest } = a; // strip embedding from response
-      return { ...rest, similarity };
-    })
-    .filter(Boolean)
-    .sort((a, b) => b.similarity - a.similarity)
-    .slice(0, 20); // top 20 results
+  // 3. Format scores as percentages
+  const results = data.map((a) => ({
+    ...a,
+    similarity: parseFloat((a.similarity * 100).toFixed(1)),
+  }));
 
   return NextResponse.json({ results });
 }
