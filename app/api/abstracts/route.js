@@ -1,9 +1,9 @@
-// api/abstracts/route.js
+// app/api/abstracts/route.js
 
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase/service";
 import { requireAdmin } from "@/lib/api-auth";
-import { generateEmbedding as getEmbedding, embedAndStore } from "@/lib/embeddings";
+import { generateEmbedding } from "@/lib/embeddings";
 
 // ── GET /api/abstracts ───────────────────────────────────────────────────────
 
@@ -58,8 +58,15 @@ export async function POST(req) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Fire-and-forget — intentionally not awaited
-  embedAndStore(supabase, data.id, `${title}. ${abstract_text}`);
+  // Fire-and-forget embedding generation — intentionally not awaited
+  (async () => {
+    try {
+      const embedding = await generateEmbedding(`${title}. ${abstract_text}`, "document");
+      await supabase.from("abstracts").update({ embedding }).eq("id", data.id);
+    } catch (err) {
+      console.error("Background embedding error:", err.message);
+    }
+  })();
 
   return NextResponse.json({ id: data.id });
 }
