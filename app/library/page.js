@@ -1,8 +1,6 @@
-// app/library/page.js
-
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -11,7 +9,8 @@ import Navbar from "@/components/Navbar";
 
 const SEMANTIC_THRESHOLD = 2;
 
-export default function LibraryPage() {
+// ── Inner component — uses useSearchParams, must be inside <Suspense> ────────
+function LibraryContent() {
   const router       = useRouter();
   const searchParams = useSearchParams();
   const supabase     = createClient();
@@ -22,14 +21,14 @@ export default function LibraryPage() {
   const [isSemanticMode, setIsSemanticMode] = useState(false);
 
   // Read state from URL
-  const search = searchParams.get("q")  || "";
+  const search = searchParams.get("q")    || "";
   const dept   = searchParams.get("dept") || "";
   const year   = searchParams.get("year") || "";
 
   // Local input state (what the user is typing, not yet committed)
   const [inputValue, setInputValue] = useState(search);
 
-  // ── Auth check ─────────────────────────────────────────────────────────────
+  // ── Auth check ───────────────────────────────────────────────────────────
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (!data.user) {
@@ -40,7 +39,7 @@ export default function LibraryPage() {
     });
   }, []);
 
-  // ── Search — fires when URL params change ──────────────────────────────────
+  // ── Search — fires when URL params change ────────────────────────────────
   useEffect(() => {
     if (authLoading) return;
 
@@ -55,7 +54,7 @@ export default function LibraryPage() {
     }
   }, [search, dept, year, authLoading]);
 
-  // ── Update URL params ──────────────────────────────────────────────────────
+  // ── Update URL params ────────────────────────────────────────────────────
   function commitSearch(value) {
     const params = new URLSearchParams(searchParams.toString());
     if (value.trim()) {
@@ -93,7 +92,7 @@ export default function LibraryPage() {
     router.push("/library");
   }
 
-  // ── Keyword search ─────────────────────────────────────────────────────────
+  // ── Keyword search ───────────────────────────────────────────────────────
   async function fetchKeyword() {
     setLoading(true);
 
@@ -113,7 +112,7 @@ export default function LibraryPage() {
     setLoading(false);
   }
 
-  // ── Semantic search ────────────────────────────────────────────────────────
+  // ── Semantic search ──────────────────────────────────────────────────────
   async function fetchSemantic() {
     setLoading(true);
 
@@ -247,5 +246,18 @@ export default function LibraryPage() {
 
       </div>
     </main>
+  );
+}
+
+// ── Page export — wraps LibraryContent in Suspense to satisfy Next.js 15 ────
+export default function LibraryPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-400 text-sm">Loading...</p>
+      </main>
+    }>
+      <LibraryContent />
+    </Suspense>
   );
 }
