@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { DEPARTMENTS } from "@/lib/constants";
+import AdminNavbar from "@/components/AdminNavbar";
 
 export default function EditAbstractPage({ params }) {
   const router   = useRouter();
@@ -87,14 +88,7 @@ export default function EditAbstractPage({ params }) {
   return (
     <main className="min-h-screen bg-gray-50">
 
-      <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <span className="text-blue-700 font-bold text-lg tracking-tight">
-          📚 Capstone Library — Admin
-        </span>
-        <Link href="/admin" className="text-sm text-gray-500 hover:text-blue-700 transition">
-          ← Back to Dashboard
-        </Link>
-      </nav>
+      <AdminNavbar />
 
       <div className="max-w-2xl mx-auto px-6 py-10">
         <h1 className="text-2xl font-bold text-gray-900 mb-8">Edit Abstract</h1>

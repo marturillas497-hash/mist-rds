@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { RISK_COLORS } from "@/lib/constants";
+import { getRiskStyle, formatDate } from "@/lib/helpers";
 import Navbar from "@/components/Navbar";
 
 export default function ReportDetailPage() {
@@ -38,17 +38,7 @@ export default function ReportDetailPage() {
     setLoading(false);
   }
 
-  function getRiskStyle(risk_level) {
-    const key = risk_level?.toUpperCase();
-    return RISK_COLORS[key] ?? { bg: "bg-gray-100", text: "text-gray-600", label: risk_level };
-  }
 
-  function formatDate(iso) {
-    return new Date(iso).toLocaleDateString("en-PH", {
-      year: "numeric", month: "long", day: "numeric",
-      hour: "2-digit", minute: "2-digit",
-    });
-  }
 
   if (loading) {
     return (
@@ -88,7 +78,7 @@ export default function ReportDetailPage() {
 
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">{report.input_title}</h1>
-          <p className="text-gray-400 text-sm mt-1">Submitted on {formatDate(report.created_at)}</p>
+          <p className="text-gray-400 text-sm mt-1">Submitted on {formatDate(report.created_at, { month: "long", hour: "2-digit", minute: "2-digit" })}</p>
         </div>
 
         <div className={`rounded-xl border p-6 mb-6 ${style.bg} border-transparent`}>

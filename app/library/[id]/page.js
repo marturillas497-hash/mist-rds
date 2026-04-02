@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
+import Navbar from "@/components/Navbar";
 
 export default async function AbstractDetailPage({ params, searchParams }) {
   const { id } = await params;
@@ -23,22 +24,7 @@ export default async function AbstractDetailPage({ params, searchParams }) {
   return (
     <main className="min-h-screen bg-gray-50">
 
-      <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <Link href="/" className="text-blue-700 font-bold text-lg tracking-tight">
-          📚 Capstone Library
-        </Link>
-        <div className="flex gap-4">
-          <Link href="/library" className="text-sm text-gray-600 hover:text-blue-700 transition">
-            Browse Library
-          </Link>
-          <Link href="/login" className="text-sm text-gray-600 hover:text-blue-700 transition">
-            Login
-          </Link>
-          <Link href="/login" className="text-sm bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition">
-            Register
-          </Link>
-        </div>
-      </nav>
+      <Navbar />
 
       <div className="max-w-3xl mx-auto px-6 py-10">
 

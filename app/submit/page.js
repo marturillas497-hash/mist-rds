@@ -5,9 +5,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { DAILY_LIMIT } from "@/lib/constants";
 import Navbar from "@/components/Navbar";
-
-const DAILY_LIMIT = 5;
 
 export default function SubmitPage() {
   const router   = useRouter();

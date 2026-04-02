@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { RISK_COLORS } from "@/lib/constants";
+import { getRiskStyle, formatDate } from "@/lib/helpers";
 import Navbar from "@/components/Navbar";
 
 export default function DashboardPage() {
@@ -39,16 +39,7 @@ export default function DashboardPage() {
     setLoading(false);
   }
 
-  function getRiskStyle(risk_level) {
-    const key = risk_level?.toUpperCase();
-    return RISK_COLORS[key] ?? { bg: "bg-gray-100", text: "text-gray-600", label: risk_level };
-  }
 
-  function formatDate(iso) {
-    return new Date(iso).toLocaleDateString("en-PH", {
-      year: "numeric", month: "short", day: "numeric",
-    });
-  }
 
   if (loading) {
     return (

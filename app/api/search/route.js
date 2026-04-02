@@ -1,38 +1,9 @@
 // app/api/search/route.js
 
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase/service";
 import { generateEmbedding } from "@/lib/embeddings";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-const EMBEDDING_DIM = 384;
-
-function cosineSimilarity(a, b) {
-  let dot = 0, magA = 0, magB = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot  += a[i] * b[i];
-    magA += a[i] * a[i];
-    magB += b[i] * b[i];
-  }
-  return (Math.sqrt(magA) === 0 || Math.sqrt(magB) === 0)
-    ? 0
-    : dot / (Math.sqrt(magA) * Math.sqrt(magB));
-}
-
-function normalizeEmbedding(raw) {
-  if (!raw) return null;
-  try {
-    if (typeof raw === "string") raw = JSON.parse(raw);
-    if (Array.isArray(raw[0])) raw = raw[0];
-    const embedding = raw.map(Number);
-    if (embedding.length !== EMBEDDING_DIM) return null;
-    return embedding;
-  } catch { return null; }
-}
+import { cosineSimilarity, normalizeEmbedding } from "@/lib/similarity";
 
 export async function GET(req) {
   const { searchParams } = new URL(req.url);

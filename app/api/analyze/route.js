@@ -1,56 +1,19 @@
 // app/api/analyze/route.js
 
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase/service";
 import OpenAI from "openai";
 import { requireAuth } from "@/lib/api-auth";
 import { generateEmbedding } from "@/lib/embeddings";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import { DAILY_LIMIT } from "@/lib/constants";
+import { cosineSimilarity, normalizeEmbedding, getRiskLevel } from "@/lib/similarity";
 
 const groq = new OpenAI({
   apiKey:  process.env.GROQ_API_KEY,
   baseURL: "https://api.groq.com/openai/v1",
 });
 
-const EMBEDDING_DIM  = 384;
-const DAILY_LIMIT    = 5;
-
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-function cosineSimilarity(a, b) {
-  let dot = 0, magA = 0, magB = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot  += a[i] * b[i];
-    magA += a[i] * a[i];
-    magB += b[i] * b[i];
-  }
-  magA = Math.sqrt(magA);
-  magB = Math.sqrt(magB);
-  if (magA === 0 || magB === 0) return 0;
-  return dot / (magA * magB);
-}
-
-function getRiskLevel(percent) {
-  if (percent >= 80) return { level: "Very High", color: "RED"    };
-  if (percent >= 60) return { level: "High",      color: "ORANGE" };
-  if (percent >= 40) return { level: "Moderate",  color: "YELLOW" };
-  return                    { level: "Low",        color: "GREEN"  };
-}
-
-function normalizeEmbedding(raw) {
-  if (!raw) return null;
-  try {
-    if (typeof raw === "string") raw = JSON.parse(raw);
-    if (Array.isArray(raw[0])) raw = raw[0];
-    const embedding = raw.map(Number);
-    if (embedding.length !== EMBEDDING_DIM) return null;
-    return embedding;
-  } catch { return null; }
-}
 
 function buildPrompt(title, description, score, similarList) {
   const context = `Keep in mind this is a college capstone research proposal. All suggestions must be realistic and achievable by undergraduate students with limited time, budget, and resources. The system is used across multiple departments including Information Systems, Education, Criminology, Midwifery, Computer Technology, Accountancy, and Public Administration — so tailor your advice to what makes sense for the student's apparent field. Do not suggest enterprise-scale systems, large datasets requiring paid APIs, or research that requires professional laboratory equipment.`;
