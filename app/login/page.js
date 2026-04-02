@@ -39,7 +39,7 @@ export default function LoginPage() {
         });
     }
   });
-}, []);
+}, [router]);
 
   function handleChange(e) {
     setForm({ ...form, [e.target.name]: e.target.value });

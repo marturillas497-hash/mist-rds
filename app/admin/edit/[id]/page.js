@@ -41,7 +41,7 @@ export default function EditAbstractPage({ params }) {
       setFetching(false);
     }
     loadAbstract();
-  }, []);
+  }, [params]);
 
   function handleChange(e) {
     setForm({ ...form, [e.target.name]: e.target.value });
