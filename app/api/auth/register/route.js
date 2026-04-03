@@ -34,6 +34,7 @@ export async function POST(req) {
       year_level: year_level  || null,
       section:    section     || null,
       student_id: student_id  || null,
+      adviser_id: adviser_id  || null,
     });
 
     if (profileError) {

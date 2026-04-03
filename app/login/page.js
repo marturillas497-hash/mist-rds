@@ -13,37 +13,51 @@ export default function LoginPage() {
   const router   = useRouter();
   const supabase = createClient();
 
-  const [mode, setMode]       = useState("login");
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState("");
-  const [form, setForm]       = useState({
+  const [mode, setMode]         = useState("login");
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
+  const [advisers, setAdvisers] = useState([]);
+  const [form, setForm]         = useState({
     email: "", password: "", full_name: "",
-    department: "", year_level: "", section: "", student_id: "",
+    department: "", year_level: "", section: "",
+    student_id: "", adviser_id: "",
   });
 
+  // ── Redirect if already logged in ───────────────────────────────────────
   useEffect(() => {
-  supabase.auth.getUser().then(({ data }) => {
-    if (data.user) {
-      // already logged in — redirect away from login page
-      supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", data.user.id)
-        .single()
-        .then(({ data: profile }) => {
-          if (profile?.role === "admin") {
-            router.replace("/admin");
-          } else {
-            router.replace("/");
-          }
-        });
-    }
-  });
-}, [router]);
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", data.user.id)
+          .single()
+          .then(({ data: profile }) => {
+            router.replace(profile?.role === "admin" ? "/admin" : "/");
+          });
+      }
+    });
+  }, [router]);
 
+  // ── Fetch advisers on mount ──────────────────────────────────────────────
+  useEffect(() => {
+    fetch("/api/advisers")
+      .then((r) => r.json())
+      .then((d) => setAdvisers(d.advisers ?? []));
+  }, []);
+
+  // ── Reset adviser when department changes ────────────────────────────────
   function handleChange(e) {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name === "department") {
+      setForm({ ...form, department: value, adviser_id: "" });
+    } else {
+      setForm({ ...form, [name]: value });
+    }
   }
+
+  // ── Advisers filtered to selected department ─────────────────────────────
+  const filteredAdvisers = advisers.filter((a) => a.department === form.department);
 
   async function handleLogin() {
     if (!form.email.trim() || !form.password.trim()) {
@@ -88,10 +102,11 @@ export default function LoginPage() {
         email:      form.email.trim(),
         password:   form.password,
         full_name:  form.full_name.trim(),
-        department: form.department || null,
-        year_level: form.year_level || null,
-        section:    form.section.trim() || null,
+        department: form.department  || null,
+        year_level: form.year_level  || null,
+        section:    form.section.trim()    || null,
         student_id: form.student_id.trim() || null,
+        adviser_id: form.adviser_id  || null,
       }),
     });
 
@@ -184,6 +199,31 @@ export default function LoginPage() {
                 >
                   <option value="">Select your department</option>
                   {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Research Adviser
+                  {form.department && filteredAdvisers.length === 0 && (
+                    <span className="text-xs text-gray-400 font-normal ml-2">
+                      — no advisers registered for {form.department} yet
+                    </span>
+                  )}
+                </label>
+                <select
+                  name="adviser_id" value={form.adviser_id} onChange={handleChange}
+                  disabled={!form.department || filteredAdvisers.length === 0}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:bg-gray-50"
+                >
+                  <option value="">
+                    {!form.department
+                      ? "Select a department first"
+                      : "Select your adviser (optional)"}
+                  </option>
+                  {filteredAdvisers.map((a) => (
+                    <option key={a.id} value={a.id}>{a.full_name}</option>
+                  ))}
                 </select>
               </div>
 

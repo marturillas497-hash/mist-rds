@@ -115,12 +115,20 @@ export default function AdminDashboard() {
             <h1 className="text-2xl font-bold text-gray-900">Abstract Repository</h1>
             <p className="text-gray-500 text-sm mt-1">{abstracts.length} abstracts in the library</p>
           </div>
-          <Link
-            href="/admin/add"
-            className="bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-800 transition"
-          >
-            + Add Abstract
-          </Link>
+          <div className="flex gap-3">
+            <Link
+              href="/admin/advisers"
+              className="bg-white border border-gray-300 text-gray-700 px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-gray-50 transition"
+            >
+              Manage Advisers
+            </Link>
+            <Link
+              href="/admin/add"
+              className="bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-800 transition"
+            >
+              + Add Abstract
+            </Link>
+          </div>
         </div>
 
         {loading ? (

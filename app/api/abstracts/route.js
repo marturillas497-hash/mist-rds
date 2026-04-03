@@ -31,7 +31,7 @@ export async function POST(req) {
   const { error: authError } = await requireAdmin(req);
   if (authError) return authError;
 
-  const { title, abstract_text, authors, year, department, keywords} =
+  const { title, abstract_text, authors, year, department, keywords, accession_id } =
     await req.json();
 
   if (!title?.trim() || !abstract_text?.trim()) {
@@ -50,6 +50,7 @@ export async function POST(req) {
       year: year ? parseInt(year, 10) : null,
       department,
       keywords,
+      accession_id: accession_id?.trim() || null,
     })
     .select("id")
     .single();
