@@ -1,5 +1,6 @@
-"use client";
 // app/admin/edit/[id]/page.js
+
+"use client";
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -17,7 +18,7 @@ export default function EditAbstractPage({ params }) {
   const [abstractId, setAbstractId] = useState(null);
   const [form, setForm]         = useState({
     title: "", abstract_text: "", authors: "",
-    year: "", department: "", keywords: "",
+    year: "", department: "", keywords: "", accession_id: "",
   });
 
   useEffect(() => {
@@ -36,6 +37,7 @@ export default function EditAbstractPage({ params }) {
           year:          data.abstract.year          ?? "",
           department:    data.abstract.department    ?? "",
           keywords:      data.abstract.keywords      ?? "",
+          accession_id:  data.abstract.accession_id  ?? "",
         });
       }
       setFetching(false);
@@ -69,7 +71,11 @@ export default function EditAbstractPage({ params }) {
     const data = await res.json();
 
     if (!res.ok) {
-      setError(data.error ?? "Something went wrong.");
+      const isDuplicate = data.error?.includes("unique") || data.error?.includes("accession_id");
+      setError(isDuplicate
+        ? `Accession ID "${form.accession_id}" is already in use. Please enter a different one.`
+        : data.error ?? "Something went wrong."
+      );
       setLoading(false);
       return;
     }
@@ -124,6 +130,13 @@ export default function EditAbstractPage({ params }) {
                 className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="e.g. 2024" />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Accession ID</label>
+            <input name="accession_id" value={form.accession_id} onChange={handleChange}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="e.g. MIST-2024-001" />
           </div>
 
           <div>

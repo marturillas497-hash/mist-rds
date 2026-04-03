@@ -10,7 +10,7 @@ import { generateEmbedding } from "@/lib/embeddings";
 export async function GET() {
   const { data, error } = await supabase
     .from("abstracts")
-    .select("id, title, department, year, embedding")
+    .select("id, accession_id, title, department, year, embedding")
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -31,7 +31,7 @@ export async function POST(req) {
   const { error: authError } = await requireAdmin(req);
   if (authError) return authError;
 
-  const { title, abstract_text, authors, year, department, keywords } =
+  const { title, abstract_text, authors, year, department, keywords} =
     await req.json();
 
   if (!title?.trim() || !abstract_text?.trim()) {

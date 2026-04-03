@@ -1,4 +1,5 @@
 "use client";
+// app/library/page.js
 
 import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
@@ -98,7 +99,7 @@ function LibraryContent() {
 
     let query = supabase
       .from("abstracts")
-      .select("id, title, authors, department, year, keywords")
+      .select("id, accession_id, title, authors, department, year, keywords")
       .order("created_at", { ascending: false });
 
     if (dept)          query = query.eq("department", dept);
@@ -220,7 +221,14 @@ function LibraryContent() {
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
-                    <h2 className="font-semibold text-gray-900 mb-1">{a.title}</h2>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h2 className="font-semibold text-gray-900">{a.title}</h2>
+                      {a.accession_id && (
+                        <span className="text-xs text-gray-400 font-mono bg-gray-100 px-2 py-0.5 rounded">
+                          {a.accession_id}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-sm text-gray-500">
                       {a.authors    && <span>{a.authors} · </span>}
                       {a.department && <span className="text-blue-600 font-medium">{a.department}</span>}

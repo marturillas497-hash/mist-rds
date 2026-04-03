@@ -9,7 +9,7 @@ export async function GET(req, { params }) {
   const { id } = await params;
   const { data, error } = await supabase
     .from("abstracts")
-    .select("id, title, abstract_text, authors, year, department, keywords")
+    .select("id, accession_id, title, abstract_text, authors, year, department, keywords")
     .eq("id", id)
     .single();
 
@@ -23,11 +23,11 @@ export async function PATCH(req, { params }) {
 
   const { id } = await params;
   const body = await req.json();
-  const { title, abstract_text, authors, year, department, keywords } = body;
+  const { title, abstract_text, authors, year, department, keywords, accession_id } = body;
 
   const { error } = await supabase
     .from("abstracts")
-    .update({ title, abstract_text, authors, year: year ? parseInt(year) : null, department, keywords, embedding: null })
+    .update({ title, abstract_text, authors, year: year ? parseInt(year) : null, department, keywords, accession_id, embedding: null })
     .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

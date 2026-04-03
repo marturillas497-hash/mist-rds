@@ -18,12 +18,17 @@ export default async function AbstractDetailPage({ params, searchParams }) {
 
   if (error || !abstract) return notFound();
 
-  // ── Log view ───────────────────────────────────────────────────────────────
+    // ── Log view ───────────────────────────────────────────────────────────────
   const { data: { user } } = await supabase.auth.getUser();
-  await supabase.from("abstract_views").insert({
-    abstract_id: id,
-    student_id:  user?.id ?? null,
-  });
+  if (user) {
+    try {
+      await supabase.from("abstract_views").insert({
+        abstract_id: id,
+        student_id:  user.id,
+      });
+    } catch (_) {
+    }
+  }
 
   const backHref  = from === "admin" ? "/admin" : "/library";
   const backLabel = from === "admin" ? "← Back to Admin Panel" : "← Back to Library";
@@ -41,7 +46,7 @@ export default async function AbstractDetailPage({ params, searchParams }) {
 
         <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
 
-          <div className="flex gap-2 mb-4">
+          <div className="flex items-center gap-2 mb-4">
             {abstract.department && (
               <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full">
                 {abstract.department}
@@ -50,6 +55,11 @@ export default async function AbstractDetailPage({ params, searchParams }) {
             {abstract.year && (
               <span className="bg-gray-100 text-gray-600 text-xs font-semibold px-3 py-1 rounded-full">
                 {abstract.year}
+              </span>
+            )}
+            {abstract.accession_id && (
+              <span className="bg-gray-50 border border-gray-200 text-gray-400 text-xs font-mono px-3 py-1 rounded-full">
+                {abstract.accession_id}
               </span>
             )}
           </div>
@@ -81,6 +91,15 @@ export default async function AbstractDetailPage({ params, searchParams }) {
                 Keywords
               </h2>
               <p className="text-sm text-gray-500">🏷 {abstract.keywords}</p>
+            </div>
+          )}
+
+          {abstract.accession_id && (
+            <div className="mt-6 bg-blue-50 border border-blue-100 rounded-lg px-4 py-3">
+              <p className="text-xs text-blue-600">
+                <span className="font-semibold">Looking for the full document?</span> Request accession ID{" "}
+                <span className="font-mono font-semibold">{abstract.accession_id}</span> from the librarian.
+              </p>
             </div>
           )}
 

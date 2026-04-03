@@ -1,8 +1,8 @@
-// mist-rds/app/admin/add/page.js
+// app/admin/add/page.js
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -12,16 +12,41 @@ import AdminNavbar from "@/components/AdminNavbar";
 export default function AddAbstractPage() {
   const router   = useRouter();
   const supabase = createClient();
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState("");
-  const [form, setForm]       = useState({
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState("");
+  const [lastAccession, setLastAccession] = useState(null);
+  const [form, setForm]             = useState({
     title: "", abstract_text: "", authors: "",
-    year: "", department: "", keywords: "",
+    year: "", department: "", keywords: "", accession_id: "",
   });
 
   function handleChange(e) {
     setForm({ ...form, [e.target.name]: e.target.value });
   }
+
+  // ── Fetch last accession ID when dept or year changes ────────────────────
+  useEffect(() => {
+    if (!form.department || !form.year) {
+      setLastAccession(null);
+      return;
+    }
+
+    async function fetchLastAccession() {
+      const { data } = await supabase
+        .from("abstracts")
+        .select("accession_id")
+        .eq("department", form.department)
+        .eq("year", parseInt(form.year))
+        .not("accession_id", "is", null)
+        .order("accession_id", { ascending: false })
+        .limit(1)
+        .single();
+
+      setLastAccession(data?.accession_id ?? null);
+    }
+
+    fetchLastAccession();
+  }, [form.department, form.year]);
 
   async function handleSubmit() {
     if (!form.title.trim() || !form.abstract_text.trim()) {
@@ -45,7 +70,11 @@ export default function AddAbstractPage() {
     const data = await res.json();
 
     if (!res.ok) {
-      setError(data.error ?? "Something went wrong.");
+      const isDuplicate = data.error?.includes("unique") || data.error?.includes("accession_id");
+      setError(isDuplicate
+        ? `Accession ID "${form.accession_id}" is already in use. Check the last used ID above and enter the next one.`
+        : data.error ?? "Something went wrong."
+      );
       setLoading(false);
       return;
     }
@@ -92,6 +121,26 @@ export default function AddAbstractPage() {
                 className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="e.g. 2024" />
             </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">Accession ID</label>
+              {lastAccession && (
+                <span className="text-xs text-gray-400">
+                  Last used: <span className="font-mono text-gray-500">{lastAccession}</span>
+                </span>
+              )}
+              {form.department && form.year && !lastAccession && (
+                <span className="text-xs text-gray-400">
+                  No entries yet for {form.department} {form.year} — start at{" "}
+                  <span className="font-mono text-gray-500">{form.department}-{form.year}-001</span>
+                </span>
+              )}
+            </div>
+            <input name="accession_id" value={form.accession_id} onChange={handleChange}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="e.g. BSIS-2024-003" />
           </div>
 
           <div>

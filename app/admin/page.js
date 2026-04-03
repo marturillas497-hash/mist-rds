@@ -12,10 +12,10 @@ export default function AdminDashboard() {
   const router   = useRouter();
   const supabase = createClient();
 
-  const [abstracts, setAbstracts]   = useState([]);
-  const [topViewed, setTopViewed]   = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [deleting, setDeleting]     = useState(null);
+  const [abstracts, setAbstracts] = useState([]);
+  const [topViewed, setTopViewed] = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [deleting, setDeleting]   = useState(null);
 
   useEffect(() => {
     fetchAbstracts();
@@ -31,34 +31,9 @@ export default function AdminDashboard() {
   }
 
   async function fetchTopViewed() {
-    const { data, error } = await supabase
-      .from("abstract_views")
-      .select("abstract_id, abstracts(title, department, year)")
-      .limit(200); // fetch recent views, aggregate client-side
-
+    const { data, error } = await supabase.rpc("get_top_viewed_abstracts", { limit_count: 5 });
     if (error || !data) return;
-
-    // Count views per abstract
-    const counts = {};
-    for (const row of data) {
-      const key = row.abstract_id;
-      if (!counts[key]) {
-        counts[key] = {
-          abstract_id: key,
-          title:       row.abstracts?.title      ?? "—",
-          department:  row.abstracts?.department ?? "—",
-          year:        row.abstracts?.year       ?? "—",
-          views:       0,
-        };
-      }
-      counts[key].views++;
-    }
-
-    const sorted = Object.values(counts)
-      .sort((a, b) => b.views - a.views)
-      .slice(0, 5);
-
-    setTopViewed(sorted);
+    setTopViewed(data);
   }
 
   async function handleDelete(id, title) {
