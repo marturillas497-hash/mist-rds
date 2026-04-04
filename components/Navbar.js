@@ -40,13 +40,15 @@ export default function Navbar() {
     supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) {
         clearCachedProfile();
+        setUser(null);
+        setRole(null);
         setLoading(false);
         return;
       }
 
       setUser(data.user);
 
-      // Return cached role if available — skip the DB query
+      // 1. Check Session Storage Cache first to prevent flickering
       const cached = getCachedProfile();
       if (cached?.userId === data.user.id) {
         setRole(cached.role);
@@ -54,19 +56,19 @@ export default function Navbar() {
         return;
       }
 
-      // Cache miss — fetch from DB and store
+      // 2. Cache miss — Fetch role from DB
       const { data: profile } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", data.user.id)
         .single();
 
-      const role = profile?.role ?? null;
-      setRole(role);
-      setCachedProfile({ userId: data.user.id, role });
+      const userRole = profile?.role ?? null;
+      setRole(userRole);
+      setCachedProfile({ userId: data.user.id, role: userRole });
       setLoading(false);
     });
-  }, [pathname]);
+  }, [pathname, supabase]);
 
   async function handleLogout() {
     clearCachedProfile();
@@ -78,51 +80,76 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-      <Link href="/" className="text-blue-700 font-bold text-lg tracking-tight">
-        📚 Capstone Library
-      </Link>
-
-      <div className="flex gap-4 items-center">
-        <Link href="/library" className="text-sm text-gray-600 hover:text-blue-700 transition">
-          Browse Library
+    <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm">
+      <div className="flex items-center gap-8">
+        <Link href="/" className="text-blue-700 font-bold text-xl tracking-tight">
+          📚 MIST RDS
         </Link>
 
+        <div className="hidden md:flex gap-6 items-center">
+          <Link href="/library" className="text-sm font-medium text-gray-600 hover:text-blue-700 transition">
+            Browse Library
+          </Link>
+
+          {!loading && user && (
+            <>
+              {/* STUDENT NAVIGATION */}
+              {role === "student" && (
+                <>
+                  <Link href="/dashboard" className="text-sm font-medium text-gray-600 hover:text-blue-700 transition">
+                    My Dashboard
+                  </Link>
+                  <Link href="/submit" className="text-sm font-medium text-gray-600 hover:text-blue-700 transition">
+                    Check Idea
+                  </Link>
+                </>
+              )}
+
+              {/* ADVISER NAVIGATION */}
+              {role === "research_adviser" && (
+                <Link href="/adviser" className="text-sm font-bold text-blue-600 hover:text-blue-800 transition">
+                  Adviser Portal
+                </Link>
+              )}
+
+              {/* ADMIN NAVIGATION */}
+              {role === "admin" && (
+                <Link href="/admin" className="text-sm font-medium text-purple-600 hover:text-purple-800 transition">
+                  Admin Panel
+                </Link>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="flex gap-4 items-center">
         {!loading && (
           <>
-            {user && role === "admin" && (
-              <Link href="/admin" className="text-sm text-gray-600 hover:text-blue-700 transition">
-                Admin Panel
-              </Link>
-            )}
-
-            {user && role === "student" && (
-              <>
-                <Link href="/dashboard" className="text-sm text-gray-600 hover:text-blue-700 transition">
-                  My Dashboard
-                </Link>
-                <Link href="/submit" className="text-sm text-gray-600 hover:text-blue-700 transition">
-                  Check Idea
-                </Link>
-              </>
-            )}
-
             {user ? (
-              <button
-                onClick={handleLogout}
-                className="text-sm bg-red-500 text-white px-4 py-1.5 rounded-md hover:bg-red-600 transition"
-              >
-                Logout
-              </button>
+              <div className="flex items-center gap-4">
+                <span className="hidden lg:block text-xs text-gray-400 font-mono">
+                  {role?.toUpperCase()}
+                </span>
+                <button
+                  onClick={handleLogout}
+                  className="text-sm bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-red-50 hover:text-red-600 transition font-medium"
+                >
+                  Logout
+                </button>
+              </div>
             ) : (
-              <>
-                <Link href="/login" className="text-sm text-gray-600 hover:text-blue-700 transition">
-                  Login
+              <div className="flex items-center gap-2">
+                <Link href="/login" className="text-sm text-gray-600 hover:text-blue-700 transition px-3 py-2">
+                  Sign In
                 </Link>
-                <Link href="/login" className="text-sm bg-blue-700 text-white px-4 py-1.5 rounded-md hover:bg-blue-800 transition">
-                  Register
+                <Link 
+                  href="/login?mode=register" 
+                  className="text-sm bg-blue-700 text-white px-5 py-2 rounded-lg hover:bg-blue-800 transition shadow-sm font-medium"
+                >
+                  Get Started
                 </Link>
-              </>
+              </div>
             )}
           </>
         )}
